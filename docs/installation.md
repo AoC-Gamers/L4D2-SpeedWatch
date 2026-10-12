@@ -29,7 +29,7 @@ El manifiesto `plugin-package-map.json` limita el build a `l4d2_speedwatch`;
 el test no se compila en este target. Para empaquetado y automatización, consultar
 [build y CI/CD](build-system.md).
 
-## Instalación de prueba
+## Instalación
 
 Copiar únicamente:
 
@@ -40,8 +40,13 @@ addons/sourcemod/translations/l4d2_speedwatch.phrases.txt
   → addons/sourcemod/translations/l4d2_speedwatch.phrases.txt
 ```
 
+SDKTools y SDKHooks deben estar disponibles en SourceMod; sus includes conservan
+la carga automática y el requisito estándar. Pause, readyup y Left4DHooks siguen
+siendo plugins opcionales.
+
 Cargar desde consola con `sm plugins load l4d2_speedwatch`. SourceMod genera
-`cfg/sourcemod/l4d2_speedwatch.cfg`. No se ha instalado en ningún servidor.
+`cfg/sourcemod/l4d2_speedwatch.cfg`. Configurar las ConVars según las necesidades
+del servidor; los escenarios de validación en juego están en [validación](testing.md).
 
 ## Configuración
 

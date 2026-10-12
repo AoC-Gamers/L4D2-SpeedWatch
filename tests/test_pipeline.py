@@ -72,6 +72,9 @@ print('compiler spy completed')
             self.assertEqual([p for p in files if p.endswith(".smx")],
                              ["addons/sourcemod/plugins/l4d2_speedwatch.smx"])
             for name in ("README.md", "LICENSE", "compile.log", "docs/index.md",
+                         "addons/sourcemod/scripting/l4d2_speedwatch/logging.sp",
+                         "addons/sourcemod/scripting/l4d2_speedwatch/integrations.sp",
+                         "addons/sourcemod/scripting/l4d2_speedwatch/detector.sp",
                          "addons/sourcemod/scripting/include/l4d2_speedwatch.inc",
                          "addons/sourcemod/translations/l4d2_speedwatch.phrases.txt"):
                 self.assertIn(name, files)

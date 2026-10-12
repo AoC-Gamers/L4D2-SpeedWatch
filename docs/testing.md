@@ -8,6 +8,10 @@ Validado localmente: compilación con SourcePawn 1.12.0.7255 y `-E`, sin warning
 metadatos del SMX con `pause`, `readyup` y `left4dhooks` marcados `required=0` e inicializadores
 de natives opcionales exportados. API y consumidores opcional/obligatorio compilados con `-E`;
 contrato de dependencia e imports/exports verificados en los metadatos SMX.
+La división en tres módulos privados conserva los bloques originales y compila
+con el mismo compilador y `-E`. Se comprueba que el ZIP contiene los tres módulos
+y un único SMX de producción, excluye el test y los includes de terceros.
+La recompilación completa usa las fuentes e includes del checkout junto con el SDK.
 Revisión estática: callbacks de biblioteca pasivos, ausencia
 de consultas a `IsInPause()` en la ruta por comando y registro de alertas sin
 condición de debug o máscara. Readyup usa la presencia de su biblioteca como garantía de su native;
@@ -19,7 +23,7 @@ ninguno de esos resultados runtime.
 
 ## Detector y coste de CPU
 
-Prueba propuesta para esta primera fase:
+Procedimiento de validación del detector:
 
 1. Cargar en un servidor de pruebas y consultar status con humanos a cadencia
    normal, a los tickrates que realmente utilice el servidor.
@@ -33,19 +37,20 @@ Prueba propuesta para esta primera fase:
 6. Comprobar chat admin/público, idioma y permisos, y que el plugin no bloquea
    ningún comando ni modifica movimiento.
 7. Comparar CPU de forma repetida bajo la misma carga de humanos, bots, mapa,
-   tickrate y plugins: sin detector, con este prototipo y con el módulo SMAC.
+   tickrate y plugins: sin detector, con SpeedWatch y con el módulo SMAC.
    Comparar primero el módulo aislado; el total de una suite no atribuye costes
    a un detector. Usar el profiler disponible y frame times además del CPU total.
 
-La fase siguiente debe ajustar umbrales con esas muestras antes de decidir
-si añadir una segunda señal o alguna acción preventiva.
+Usar estas mediciones para ajustar los umbrales y documentar los falsos positivos
+y el coste de CPU observados.
 
 ## Logs y debug
 
 Pendiente en SRCDS: cargar con `logs/` disponible
 y con directorio ausente en una instalación de prueba; activar debug y probar
-cada bit por separado, `12`, `15`, `31`, `0` y modo normal. Confirmar un
-marcador de parada y ausencia de líneas de diagnóstico con debug en `0`.
+cada bit por separado, `12`, `15`, `31`, `0` y modo normal. Confirmar la
+ausencia de líneas de diagnóstico con debug en `0` y que cada cambio de debug o
+flags se aplique en la siguiente comprobación, sin recargar el plugin.
 Generar una alerta con debug y flags en `0` y verificar que queda en el archivo;
 recargar y
 comprobar append. Probar un destino sin permisos y verificar `file_ready=0`,
@@ -157,7 +162,7 @@ selección de entrypoints, limpieza de binarios antiguos, payload del ZIP,
 rechazo de SMX ajenos y propagación de fallos de compilación. Esas pruebas de
 orquestación no sustituyen una compilación real de SourcePawn ni una prueba en SRCDS.
 
-Validación local de esta integración: cuatro pruebas de pipeline aprobadas,
+Validación local del pipeline: cuatro pruebas aprobadas,
 compilación real de `l4d2_speedwatch.sp` con SourcePawn 1.12.0.7255 y `-E` sin
 warnings, staging validado y release ZIP con un único SMX de producción.
 También se verificó un build real en un directorio temporal con una fuente de

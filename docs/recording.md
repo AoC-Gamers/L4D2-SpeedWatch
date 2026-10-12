@@ -7,6 +7,7 @@ El include, el forward de alertas y el native de consulta se describen en [API p
 Desde 0.8.0 se ofrece un flujo independiente de las alertas del chat:
 
 ```sourcepawn
+#include <sourcemod>
 #include <l4d2_speedwatch>
 
 public void SpeedWatch_OnDetectionStateChanged(int client, int accountId, int userId,

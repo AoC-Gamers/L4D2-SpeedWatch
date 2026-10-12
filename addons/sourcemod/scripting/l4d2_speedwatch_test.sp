@@ -17,7 +17,7 @@ public Plugin myinfo =
     author = "Lechuga",
     description = "Checks public sample output and receives detection forwards",
     version = "0.8.0",
-    url = ""
+    url = "https://github.com/AoC-Gamers/L4D2-SpeedWatch"
 };
 
 /** Secuencia observada; un consumidor tardío puede recibir solo el terminal. */

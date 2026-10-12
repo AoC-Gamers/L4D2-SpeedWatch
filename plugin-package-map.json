@@ -13,16 +13,16 @@
           "files": [
             "l4d2_speedwatch.sp"
           ],
+          "l4d2_speedwatch": {
+            "files": [
+              "logging.sp",
+              "integrations.sp",
+              "detector.sp"
+            ]
+          },
           "include": {
             "files": [
-              "l4d2_speedwatch.inc",
-              "pause.inc",
-              "readyup.inc",
-              "left4dhooks.inc",
-              "left4dhooks_anim.inc",
-              "left4dhooks_lux_library.inc",
-              "left4dhooks_silver.inc",
-              "left4dhooks_stocks.inc"
+              "l4d2_speedwatch.inc"
             ]
           }
         },

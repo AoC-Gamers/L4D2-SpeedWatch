@@ -2,8 +2,8 @@
 
 [Índice de documentación](index.md) · [README](../README.md)
 
-El flujo adapta el CI/CD de L4D2-Player-Stats: dependencias, compilación y release
-son etapas separadas, con scripts compartidos entre `make` y GitHub Actions.
+El CI/CD separa dependencias, compilación y release en etapas, con scripts
+compartidos entre `make` y GitHub Actions.
 La plataforma del pipeline es Linux y usa SourceMod 1.12.
 
 ## Manifiesto de producción
@@ -12,6 +12,13 @@ La plataforma del pipeline es Linux y usa SourceMod 1.12.
 
 - `build.plugins`: entrypoints que se compilan. Solo declara `l4d2_speedwatch`.
 - `artifact.addons.sourcemod`: fuentes, includes y traducciones publicados.
+
+Los módulos privados `logging.sp`, `integrations.sp` y `detector.sp` se publican
+en `addons/sourcemod/scripting/l4d2_speedwatch/`. Se incluyen desde el principal;
+no se añaden a `build.plugins` ni generan SMX propios. El paquete conserva estos
+archivos junto con el include público de la API. Los includes de terceros
+(`pause`, `readyup` y `left4dhooks*`) permanecen en el checkout y se excluyen del
+ZIP. Para recompilar con todas las dependencias, usar el checkout del repositorio.
 
 `build-local.py` recorre exclusivamente los plugins declarados, sin compilar
 por wildcard los `.sp` presentes en `scripting/`. La ausencia de una fuente
@@ -50,8 +57,8 @@ make release RELEASE_BASENAME=l4d2-speedwatch-local
 
 El binario de producción queda en
 `.build/smx/addons/sourcemod/plugins/l4d2_speedwatch.smx`.
-Se mantienen los overrides `SM_SCRIPTING`, `SPCOMP` y `SM_VERSION` del build
-anterior. `SOURCEMOD_VERSION` selecciona la rama del helper; actualmente admite
+Los overrides `SM_SCRIPTING`, `SPCOMP` y `SM_VERSION` permiten seleccionar el SDK
+y el compilador. `SOURCEMOD_VERSION` selecciona la rama del helper; actualmente admite
 `1.12`. `PYTHON`, `SMX_BUILD_DIR`, `SMX_PACKAGE_DIR` y `RELEASE_BASENAME` ajustan
 las herramientas y salidas. Los directorios generados deben quedar dentro de
 `.build/` o `dist/`. El número de build del SDK no está fijado y la caché puede
@@ -83,7 +90,7 @@ publicación excluyen siempre los eventos `pull_request`.
 | Push o ejecución manual en `develop` | `l4d2-speedwatch-develop.zip` | `channel/develop`, Develop como prerelease |
 | Pull request u otra rama manual | `l4d2-speedwatch-pr-<sha7>.zip` | Solo artefacto de Actions; no publica release |
 
-Como en la referencia, los tags de canal son móviles: el workflow los actualiza
+Los tags de canal son móviles: el workflow los actualiza
 al commit de la ejecución y reemplaza el asset del canal. No crea releases
 versionadas por cada build ni despliega en un servidor de juego.
 
@@ -100,7 +107,7 @@ publicación de un paquete no acredita una prueba en SRCDS.
 esperados y rechazan archivos adicionales. Solo se admite el SMX declarado en
 `build.plugins`; introducir un SMX de test o de otro plugin hace fallar el staging
 y la creación del ZIP. También se exige un binario y un log no vacíos, README,
-licencia, documentación, fuente de producción, API, headers opcionales y traducciones.
+licencia, documentación, fuente principal, módulos privados, API y traducciones.
 
 El ZIP es un paquete de instalación con las fuentes de producción y su
 compilación registrada. Los scripts, workflow, manifiesto y test de diagnóstico

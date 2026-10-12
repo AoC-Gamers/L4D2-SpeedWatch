@@ -20,10 +20,27 @@ Referencia revisada:
 Ese módulo ya tiene una ruta simple, un presupuesto de dos segundos de ticks,
 una evaluación cada 0.1 s y bloqueo cuando agota el presupuesto. No hay una
 medición que atribuya el consumo de CPU de una instalación de SMAC a este módulo.
-Este prototipo cambia tanto el coste como el comportamiento; no es equivalente
+SpeedWatch cambia tanto el coste como el comportamiento; no es equivalente
 al mecanismo preventivo de SMAC.
 
 ## Diseño
+
+El plugin se organiza en un entrypoint y tres módulos privados bajo
+`addons/sourcemod/scripting/`:
+
+| Archivo | Responsabilidad |
+| --- | --- |
+| `l4d2_speedwatch.sp` | Metadatos, ConVars, runtime general, ciclo de vida, eventos y comando de estado |
+| `l4d2_speedwatch/logging.sp` | Logger, archivo, categorías debug y registros obligatorios |
+| `l4d2_speedwatch/integrations.sp` | Forwards y reconciliación de pause, readyup y Left4DHooks |
+| `l4d2_speedwatch/detector.sp` | Conteo, evaluación, resets, muestras, episodios, alertas e implementación de la API |
+
+El entrypoint declara las ConVars y el único runtime general antes de incluir
+los módulos. Incluye logging primero, después detector y finalmente integraciones;
+así el logger y los datos del detector están declarados antes de los callbacks
+del principal. Cada módulo conserva su estado específico. Los tres se compilan
+dentro de `l4d2_speedwatch.smx`; no son plugins independientes. El contrato público
+para consumidores sigue en `include/l4d2_speedwatch.inc`.
 
 `AskPluginLoad2` comprueba el motor L4D2 antes de registrar la API; en otro motor
 rechaza la carga con `APLRes_Failure` y un mensaje de error. Guarda `late` una sola
@@ -39,9 +56,9 @@ comprobar la biblioteca: la notificación proviene del proveedor activo. Las
 llamadas a natives opcionales sí se protegen con la presencia de su biblioteca.
 
 - `OnPlayerRunCmdPre`: comprueba mapa/observación/pausa/readyup/sincronización y elegibilidad en memoria,
-  un incremento entero y la
-  comprobación del flag de traza por comando. Con esa traza apagada no ejecuta
-  natives, propiedades de entidades, vectores, strings ni chat en esa ruta.
+  e incrementa el contador entero de comandos. Para humanos consulta directamente
+  la ConVar de debug y, si está activo, la máscara de flags. Sin traza habilitada
+  no obtiene userid ni consulta propiedades de entidades, formatea texto o envía chat.
 - Un timer compartido de 1 s; recorre los slots y consulta estado de los humanos.
 - Solo humanos vivos en equipos 2 o 3. También puede observar infectados fantasma
   si el motor los considera vivos. Bots y espectadores no se evalúan.
@@ -65,7 +82,7 @@ no promete eliminar falsos positivos. No replica el filtro de latencia de SMAC.
 La biblioteca opcional `readyup` excluye su fase de preparación y cuenta regresiva.
 Sin ese proveedor, la observación usa las comprobaciones generales descritas aquí.
 `round_start` reabre la observación, descarta historial y pide sincronizar readyup; no define por sí solo
-una partida, mitad ni estado live. El prototipo permite guardar logs de diagnóstico
+una partida, mitad ni estado live. El plugin permite guardar logs de diagnóstico
 en su archivo propio. Cada alerta también escribe una línea en la consola del servidor.
 
 ## Mapa y validez de observación
@@ -134,7 +151,7 @@ Ambos plugins conservan un callback por comando: no se elimina ese coste.
 `Pre` es de solo lectura y SourceMod no necesita copiar modificaciones de vuelta
 desde este forward, aunque sigue preparando sus argumentos. El timer pasa de
 10 a 1 evaluación nominal por segundo. Las consultas de estado pasan a esa
-evaluación, y este prototipo omite consultas periódicas de latencia.
+evaluación, y SpeedWatch omite consultas periódicas de latencia.
 
 Estas diferencias justifican medir una reducción, no afirmar un porcentaje.
 Si otros plugins usan `OnPlayerRunCmd`, sus callbacks y costes siguen presentes.

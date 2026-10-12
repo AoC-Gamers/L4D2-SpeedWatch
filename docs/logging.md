@@ -55,18 +55,19 @@ como `event=detection_state`, con client, AccountID, userid, state y reason
 (valores numéricos de los enums del include), incluso durante el cooldown. Las sospechas intermedias siguen siendo detalle opcional
 de la flag `8`; no se consideran una alerta hasta completar el umbral.
 
-`sm_speedwatch_debug 1` añade las categorías de diagnóstico elegidas. Al activar o
-desactivar debug, o cambiar su máscara mientras está activo, se escribe un
-marcador de configuración/parada sin depender de la máscara, para poder
-interpretar el archivo. La máscara `0` silencia las categorías de detalle.
+`sm_speedwatch_debug 1` añade las categorías de diagnóstico elegidas. El logger
+consulta directamente las ConVars globales al comprobar una categoría, sin
+copiar sus valores ni registrar hooks de cambio. La siguiente comprobación usa
+los valores actuales; no se generan marcadores de configuración/parada.
+La máscara `0` silencia las categorías de detalle.
 `sm_speedwatch_debug 0` apaga solo el diagnóstico; conserva las detecciones.
 
 ## Escritura y fallos
 
 Se mantiene un único handle abierto. Las escrituras usan buffering y se hace
-flush inmediatamente por detección, al terminar cada evaluación de 1 s, al cambiar logging, al terminar mapa
+flush inmediatamente por detección, al terminar cada evaluación de 1 s, al terminar mapa
 y al descargar. El timer depende de la simulación: durante una pausa el flush
-periódico puede demorarse. Los cambios de ConVars fuerzan flush para facilitar la lectura.
+periódico puede demorarse. Cambiar las ConVars de debug no fuerza un flush.
 Si falla la creación, escritura o flush, el detector sigue funcionando, se
 deshabilita la salida al archivo y se reporta un solo error por carga. La consulta
 `sm_speedwatch_status` muestra `file_ready=0`; tras corregir permisos/espacio,

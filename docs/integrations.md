@@ -5,10 +5,11 @@
 ## Biblioteca opcional `left4dhooks`
 
 Consume `L4D_GetGameModeType()`, `L4D_OnGameModeChange(int gamemode)` y
-`L4D2_OnEndVersusModeRound_Post()`. `left4dhooks.smx` es opcional. El paquete
+`L4D2_OnEndVersusModeRound_Post()`. `left4dhooks.smx` es opcional. El repositorio
 incluye los cinco includes originales necesarios para compilar, con sus cabeceras
-de licencia; no instala Left4DHooks ni su gamedata. SDKHooks, incluido
-indirectamente por esos headers, queda opcional y sin autoload en SpeedWatch.
+de licencia; se excluyen del ZIP de release. El paquete no instala Left4DHooks ni su gamedata. SDKHooks, incluido
+indirectamente por esos headers, usa el comportamiento estándar de SourceMod:
+extensión requerida con carga automática, aunque `left4dhooks.smx` siga siendo opcional.
 
 - Guarda `hasLeft4DHooks`, `gameMode` y `modeNeedsSync` en `g_Runtime`.
   Modo base: `0` desconocido, `1` Coop, `2` Versus, `4` Survival, `8` Scavenge.
@@ -50,8 +51,8 @@ no prueban por sí solos que el detour se haya habilitado en esa carga tardía.
 
 Compatible por diseño con la API de `pause.sp` de L4D2-Competitive-Rework:
 `IsInPause()`, `OnPause` y `OnUnpause`. `pause.smx` **no es obligatorio** para
-cargar SpeedWatch. El paquete incluye una copia de `pause.inc` para compilar,
-con su cabecera de licencia original; no incluye ni instala el plugin de pausa.
+cargar SpeedWatch. El repositorio incluye una copia de `pause.inc` para compilar,
+con su cabecera de licencia original; el ZIP excluye ese include y no instala el plugin de pausa.
 
 - `OnPause` suspende inmediatamente el conteo y descarta comandos, exceso y
   rachas. Tampoco se escriben trazas por comando durante la pausa.
@@ -83,8 +84,8 @@ prueba en SRCDS.
 ## Biblioteca opcional `readyup`
 
 Se integra con `readyup.sp` de L4D2-Competitive-Rework mediante `IsInReady()`,
-`OnReadyUpInitiate` y `OnRoundIsLive`. El paquete incluye una copia de `readyup.inc`
-con su cabecera original. `readyup.smx` no es obligatorio ni se instala con el
+`OnReadyUpInitiate` y `OnRoundIsLive`. El repositorio incluye una copia de `readyup.inc`
+con su cabecera original, excluida del ZIP de release. `readyup.smx` no es obligatorio ni se instala con el
 paquete; tampoco se añaden las dependencias que utiliza internamente ese proveedor.
 
 - Al entrar en readyup, suspende inmediatamente conteo, traza por comando,

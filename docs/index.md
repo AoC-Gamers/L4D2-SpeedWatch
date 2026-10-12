@@ -2,7 +2,7 @@
 
 [README del proyecto](../README.md)
 
-Documentación del prototipo 0.8.0. Elegir la guía según el trabajo que se vaya a realizar.
+Documentación del plugin L4D2 SpeedWatch 0.8.0. Elegir la guía según el trabajo que se vaya a realizar.
 
 | Guía | Contenido |
 | --- | --- |

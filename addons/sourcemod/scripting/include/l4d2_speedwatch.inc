@@ -7,8 +7,6 @@
 #endif
 #define _l4d2_speedwatch_included
 
-#include <sourcemod>
-
 /** Transiciones de un episodio; Recovered e Interrupted lo terminan. */
 enum SpeedWatchDetectionState
 {
@@ -112,7 +110,6 @@ native bool SpeedWatch_GetClientSample(int client, SpeedWatchSample sample);
 forward void SpeedWatch_OnDetection(int client, int accountId, int userId,
     float commandsPerSecond, float ratio, float excess, int consecutiveSamples);
 
-#if !defined SPEEDWATCH_PROVIDER
 public SharedPlugin __pl_l4d2_speedwatch =
 {
     name = "l4d2_speedwatch",
@@ -130,5 +127,4 @@ public void __pl_l4d2_speedwatch_SetNTVOptional()
 {
     MarkNativeAsOptional("SpeedWatch_GetClientSample");
 }
-#endif
 #endif

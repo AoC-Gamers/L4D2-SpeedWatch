@@ -5,11 +5,13 @@
 Include: `addons/sourcemod/scripting/include/l4d2_speedwatch.inc`.
 Biblioteca: `l4d2_speedwatch`.
 El proveedor registra su API en `AskPluginLoad2` y acepta consumidores obligatorios
-u opcionales. Copiar el include al SDK del consumidor para compilarlo.
+u opcionales. Copiar el include al SDK del consumidor para compilarlo e incluir
+`<sourcemod>` antes de `<l4d2_speedwatch>`.
 
 ## Forward de alertas
 
 ```sourcepawn
+#include <sourcemod>
 #include <l4d2_speedwatch>
 
 public void SpeedWatch_OnDetection(int client, int accountId, int userId,
