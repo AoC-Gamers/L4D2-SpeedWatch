@@ -1,0 +1,4 @@
+# Preserve original third-party headers, including their line endings and whitespace.
+addons/sourcemod/scripting/include/left4dhooks*.inc -text -whitespace
+addons/sourcemod/scripting/include/pause.inc -text -whitespace
+addons/sourcemod/scripting/include/readyup.inc -text -whitespace

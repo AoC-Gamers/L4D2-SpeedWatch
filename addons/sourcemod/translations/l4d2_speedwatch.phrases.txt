@@ -1,0 +1,9 @@
+"Phrases"
+{
+    "SpeedSuspicion"
+    {
+        "#format"    "{1:N},{2:d},{3:.1f},{4:.2f}"
+        "en"    "Possible speedhack: {1} (#{2}), {3} cmds/s ({4}x tickrate)."
+        "es"    "Posible speedhack: {1} (#{2}), {3} cmds/s ({4}x tickrate)."
+    }
+}

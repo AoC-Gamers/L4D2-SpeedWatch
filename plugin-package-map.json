@@ -1,0 +1,37 @@
+{
+  "build": {
+    "plugins": {
+      "root": [
+        "l4d2_speedwatch"
+      ]
+    }
+  },
+  "artifact": {
+    "addons": {
+      "sourcemod": {
+        "scripting": {
+          "files": [
+            "l4d2_speedwatch.sp"
+          ],
+          "include": {
+            "files": [
+              "l4d2_speedwatch.inc",
+              "pause.inc",
+              "readyup.inc",
+              "left4dhooks.inc",
+              "left4dhooks_anim.inc",
+              "left4dhooks_lux_library.inc",
+              "left4dhooks_silver.inc",
+              "left4dhooks_stocks.inc"
+            ]
+          }
+        },
+        "translations": {
+          "files": [
+            "l4d2_speedwatch.phrases.txt"
+          ]
+        }
+      }
+    }
+  }
+}
