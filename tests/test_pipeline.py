@@ -71,7 +71,7 @@ print('compiler spy completed')
             self.assertIsNone(archive.testzip())
             self.assertEqual([p for p in files if p.endswith(".smx")],
                              ["addons/sourcemod/plugins/l4d2_speedwatch.smx"])
-            for name in ("README.md", "LICENSE", "compile.log", "docs/index.md",
+            for name in ("LICENSE", "compile.log",
                          "addons/sourcemod/scripting/l4d2_speedwatch/logging.sp",
                          "addons/sourcemod/scripting/l4d2_speedwatch/integrations.sp",
                          "addons/sourcemod/scripting/l4d2_speedwatch/detector.sp",
@@ -79,6 +79,21 @@ print('compiler spy completed')
                          "addons/sourcemod/translations/l4d2_speedwatch.phrases.txt"):
                 self.assertIn(name, files)
             self.assertFalse(any("speedwatch_test" in p for p in files))
+            self.assertNotIn("README.md", files)
+            self.assertFalse(any(p.startswith("docs/") for p in files))
+
+    def test_release_rejects_documentation_in_artifact(self):
+        self.build()
+        for relative in ("README.md", "docs/index.md"):
+            with self.subTest(path=relative):
+                self.stage()
+                leaked = self.root / "dist/sourcemod/artifact" / relative
+                leaked.parent.mkdir(parents=True, exist_ok=True)
+                shutil.copy2(self.root / relative, leaked)
+                result = self.tool("package-release.py", "--root", self.root,
+                                   "--basename", "docs-leak", success=False)
+                self.assertIn("Unexpected artifact files", result.stderr)
+                self.assertFalse((self.root / "dist/release/docs-leak.zip").exists())
 
     def test_staging_and_release_reject_unexpected_test_binary(self):
         self.build()

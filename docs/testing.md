@@ -10,7 +10,8 @@ de natives opcionales exportados. API y consumidores opcional/obligatorio compil
 contrato de dependencia e imports/exports verificados en los metadatos SMX.
 La división en tres módulos privados conserva los bloques originales y compila
 con el mismo compilador y `-E`. Se comprueba que el ZIP contiene los tres módulos
-y un único SMX de producción, excluye el test y los includes de terceros.
+y un único SMX de producción, excluye el test, los includes de terceros y la
+documentación (`docs/` y `README.md`). La licencia y el log de compilación se conservan.
 La recompilación completa usa las fuentes e includes del checkout junto con el SDK.
 Revisión estática: callbacks de biblioteca pasivos, ausencia
 de consultas a `IsInPause()` en la ruta por comando y registro de alertas sin
@@ -162,7 +163,8 @@ selección de entrypoints, limpieza de binarios antiguos, payload del ZIP,
 rechazo de SMX ajenos y propagación de fallos de compilación. Esas pruebas de
 orquestación no sustituyen una compilación real de SourcePawn ni una prueba en SRCDS.
 
-Validación local del pipeline: cuatro pruebas aprobadas,
+Validación local del pipeline: cinco pruebas aprobadas, incluyendo exclusión
+y rechazo de documentación en el artefacto,
 compilación real de `l4d2_speedwatch.sp` con SourcePawn 1.12.0.7255 y `-E` sin
 warnings, staging validado y release ZIP con un único SMX de producción.
 También se verificó un build real en un directorio temporal con una fuente de

@@ -20,6 +20,10 @@ archivos junto con el include público de la API. Los includes de terceros
 (`pause`, `readyup` y `left4dhooks*`) permanecen en el checkout y se excluyen del
 ZIP. Para recompilar con todas las dependencias, usar el checkout del repositorio.
 
+La documentación (`docs/` y `README.md`) se conserva solo en el repositorio y se
+excluye del artefacto y del ZIP de release. El paquete mantiene `LICENSE` y
+`compile.log` junto con los archivos de producción.
+
 `build-local.py` recorre exclusivamente los plugins declarados, sin compilar
 por wildcard los `.sp` presentes en `scripting/`. La ausencia de una fuente
 mapeada o cualquier warning/error de `spcomp` falla el build. Antes de compilar,
@@ -39,8 +43,8 @@ Ejecutar desde la raíz del proyecto:
 | --- | --- |
 | `make deps-smx` | Descarga o reutiliza el SDK en `deps/sourcemod-linux` |
 | `make build-smx` | Compila producción y copia los archivos mapeados a `.build/smx/addons/sourcemod/`; registra `deps/build-smx-compile.log` |
-| `make package-smx` | Crea `.build/package-smx` con addons, README, licencia, docs y compile.log |
-| `make validate-artifact` | Valida `dist/sourcemod/artifact` contra el manifiesto y la documentación |
+| `make package-smx` | Crea `.build/package-smx` con addons, licencia y compile.log, sin documentación |
+| `make validate-artifact` | Valida `dist/sourcemod/artifact` contra el manifiesto, la licencia y el log de compilación |
 | `make release` | Prepara el paquete, lo lleva a `dist/sourcemod/artifact`, valida y genera `dist/release/l4d2-speedwatch-local.zip` |
 | `make test-ci` | Ejecuta las pruebas de selección y empaquetado; no compila plugins de diagnóstico |
 | `make build-api-test` | Compilación manual del test en `.build/tests/`, fuera de CI y del paquete |
@@ -106,8 +110,9 @@ publicación de un paquete no acredita una prueba en SRCDS.
 `ci-validate-artifact.sh` y `validate-artifact.py` comprueban todos los archivos
 esperados y rechazan archivos adicionales. Solo se admite el SMX declarado en
 `build.plugins`; introducir un SMX de test o de otro plugin hace fallar el staging
-y la creación del ZIP. También se exige un binario y un log no vacíos, README,
-licencia, documentación, fuente principal, módulos privados, API y traducciones.
+y la creación del ZIP. También se exige un binario y un log no vacíos,
+licencia, fuente principal, módulos privados, API y traducciones. La presencia
+de documentación en el artefacto se rechaza como contenido adicional.
 
 El ZIP es un paquete de instalación con las fuentes de producción y su
 compilación registrada. Los scripts, workflow, manifiesto y test de diagnóstico

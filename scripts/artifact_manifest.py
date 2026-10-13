@@ -64,7 +64,7 @@ def validate_artifact(root: Path, artifact: Path, *, full: bool = True) -> None:
     plugins = plugin_paths(manifest)
     expected = set(plugins) | selected_files(root, manifest["artifact"])
     if full:
-        expected |= selected_files(root, {"files": ["README.md", "LICENSE", "docs/index.md"], "dirs": ["docs"]})
+        expected |= selected_files(root, {"files": ["LICENSE"]})
         expected.add(Path("compile.log"))
         actual = {p.relative_to(artifact) for p in artifact.rglob("*") if p.is_file()}
     else:
