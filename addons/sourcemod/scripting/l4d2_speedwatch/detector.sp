@@ -46,6 +46,8 @@ float      g_LastEngineTime;
 float      g_LastInterval;
 int        g_LastTick;
 
+#include "context.sp"
+
 /**
  * Comprueba en memoria si se permite recoger comandos o consumir una muestra.
  * No afirma que la última evaluación sea válida; eso lo indica sampleValid.
@@ -68,16 +70,13 @@ bool bCanObserve()
  */
 public void OnPlayerRunCmdPre(int client, int buttons, int impulse, const float vel[3], const float angles[3], int weapon, int subtype, int cmdnum, int tickcount, int seed, const int mouse[2])
 {
-    if (!bCanObserve())
+    if (!bCanObserve() || !g_bMonitor[client])
     {
         return;
     }
-    // Ruta habitual: elegibilidad en memoria, incremento y traza desactivada.
-    if (g_bMonitor[client])
-    {
-        g_Commands[client]++;
-    }
-    if (g_bHuman[client] && g_Log.bDebug(DEBUG_COMMANDS))
+    // Los espectadores y demás slots no elegibles tampoco generan traza.
+    g_Commands[client]++;
+    if (g_Log.bDebug(DEBUG_COMMANDS))
     {
         char message[192];
         Format(message, sizeof(message), "event=command slot=%d userid=%d cmdnum=%d client_tick=%d tracking=%d count=%d",
@@ -143,13 +142,16 @@ public Action OnSampleTimer(Handle timer)
     float buffer   = g_cvBurst.FloatValue / interval;
     int   required = g_cvSamples.IntValue;
     int generation = g_Runtime.observationGeneration;
+    // Captura diferida: sin debug ni alertas no se consultan propiedades físicas.
+    MovementProfile profile;
+    bool hasProfile = false;
     for (int client = 1; client <= MaxClients; client++)
     {
         if (!g_bHuman[client])
         {
             continue;
         }
-        if (!IsClientInGame(client) || !IsPlayerAlive(client) || GetClientTeam(client) < 2)
+        if (!IsClientInGame(client) || !IsPlayerAlive(client) || !IsPlayingTeam(GetClientTeam(client)))
         {
             ResetClient(client, now, SpeedWatchReason_ClientUnavailable);
             if (FlushDetectionEvents() && !bEvaluationCurrent(generation))
@@ -177,6 +179,17 @@ public Action OnSampleTimer(Handle timer)
         if (now < g_GraceUntil[client])
         {
             StoreClientSample(client, now, true);
+            if (g_Log.bDebug(DEBUG_SAMPLES))
+            {
+                if (!hasProfile)
+                {
+                    CaptureMovementProfile(profile);
+                    hasProfile = true;
+                }
+                MovementContext graceContext;
+                CaptureMovementContext(client, now, profile, graceContext);
+                WriteMovementContext(graceContext, profile, false);
+            }
             DebugLog(DEBUG_SAMPLES, "samples", "event=client_sample slot=%d userid=%d state=grace commands=%d cmds_per_second=%.2f ratio=%.3f remaining=%.2f",
                      client, GetClientUserId(client), commands, g_LastRate[client], g_LastRatio[client], g_GraceUntil[client] - now);
             continue;
@@ -214,6 +227,21 @@ public Action OnSampleTimer(Handle timer)
                      client, GetClientUserId(client), g_Strikes[client], required, now >= g_NextAlert[client] ? 0.0 : g_NextAlert[client] - now);
         }
 
+        // Fotografía local: no se comparte entre slots ni sobrevive a esta evaluación.
+        // Se toma ANTES de forwards que pueden cambiar estado, equipo o conexión.
+        MovementContext context;
+        context.captured = false;
+        if (g_Log.bDebug(DEBUG_SAMPLES)
+            || (g_Log.file != null && g_Strikes[client] >= required && now >= g_NextAlert[client]))
+        {
+            if (!hasProfile)
+            {
+                CaptureMovementProfile(profile);
+                hasProfile = true;
+            }
+            CaptureMovementContext(client, now, profile, context);
+            WriteMovementContext(context, profile, false);
+        }
         int userId = g_ClientSamples[client].userId;
         UpdateDetectionEpisode(client, commands, allowed, elapsed, required);
         if (FlushDetectionEvents())
@@ -233,7 +261,7 @@ public Action OnSampleTimer(Handle timer)
         if (g_Strikes[client] >= required && now >= g_NextAlert[client])
         {
             g_NextAlert[client] = now + g_cvCooldown.FloatValue;
-            SendAlert(client);
+            SendAlert(client, context, profile);
             // Un consumidor puede pausar, iniciar readyup o cambiar reglas en el forward.
             if (!bEvaluationCurrent(generation))
             {
@@ -379,11 +407,13 @@ bool FlushDetectionEvents()
         return false;
     }
     g_Runtime.dispatchingDetectionEvents = true;
-    while (g_DetectionEvents.Length > 0)
+    int nextEvent = 0;
+    // Mantiene FIFO y consume también lo añadido por callbacks reentrantes.
+    // No desplaza toda la cola con Erase(0) en cada notificación.
+    while (nextEvent < g_DetectionEvents.Length)
     {
         DetectionStateEvent notification;
-        g_DetectionEvents.GetArray(0, notification, sizeof(notification));
-        g_DetectionEvents.Erase(0);
+        g_DetectionEvents.GetArray(nextEvent++, notification, sizeof(notification));
         DetectionLog("detections", "event=detection_state client=%d accountid=%d userid=%d state=%d reason=%d",
             notification.client, notification.accountId, notification.userId, notification.state, notification.reason);
         Call_StartForward(g_hDetectionStateForward);
@@ -394,6 +424,7 @@ bool FlushDetectionEvents()
         Call_PushCell(notification.reason);
         Call_Finish();
     }
+    g_DetectionEvents.Clear();
     g_Runtime.dispatchingDetectionEvents = false;
     return true;
 }
@@ -404,7 +435,7 @@ bool FlushDetectionEvents()
  *
  * @param suspect      Índice del jugador humano que originó la alerta.
  */
-void SendAlert(int suspect)
+void SendAlert(int suspect, MovementContext context, MovementProfile profile)
 {
     // Captura valores antes de notificar a consumidores que pueden cambiar el estado.
     SpeedWatchSample sample;
@@ -413,6 +444,7 @@ void SendAlert(int suspect)
     DetectionLog("detections", "event=alert client=%d accountid=%d suspect_userid=%d cmds_per_second=%.2f ratio=%.3f excess=%.2f strikes=%d public=%d",
               sample.client, sample.accountId, userid, sample.commandsPerSecond, sample.ratio, sample.excess,
               sample.consecutiveSamples, g_cvPublic.BoolValue);
+    WriteMovementContext(context, profile, true);
     for (int target = 1; target <= MaxClients; target++)
     {
         if (!IsClientInGame(target) || IsFakeClient(target))
@@ -480,7 +512,7 @@ public any Native_GetClientSample(Handle plugin, int numParams)
     bool valid = bCanObserve() && g_Runtime.sampleValid
         && g_bHasSample[client]
         && g_bHuman[client] && g_bMonitor[client] && IsClientInGame(client)
-        && IsPlayerAlive(client) && GetClientTeam(client) >= 2;
+        && IsPlayerAlive(client) && IsPlayingTeam(GetClientTeam(client));
     if (valid)
     {
         float age = GetEngineTime() - g_ClientSamples[client].engineTime;

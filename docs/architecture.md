@@ -25,7 +25,7 @@ al mecanismo preventivo de SMAC.
 
 ## Diseño
 
-El plugin se organiza en un entrypoint y tres módulos privados bajo
+El plugin se organiza en un entrypoint y cuatro módulos privados bajo
 `addons/sourcemod/scripting/`:
 
 | Archivo | Responsabilidad |
@@ -33,12 +33,13 @@ El plugin se organiza en un entrypoint y tres módulos privados bajo
 | `l4d2_speedwatch.sp` | Metadatos, ConVars, runtime general, ciclo de vida, eventos y comando de estado |
 | `l4d2_speedwatch/logging.sp` | Logger, archivo, categorías debug y registros obligatorios |
 | `l4d2_speedwatch/integrations.sp` | Forwards y reconciliación de pause, readyup y Left4DHooks |
+| `l4d2_speedwatch/context.sp` | Fotografía diagnóstica de movimiento y población; incluido por detector, sin nueva regla de sospecha |
 | `l4d2_speedwatch/detector.sp` | Conteo, evaluación, resets, muestras, episodios, alertas e implementación de la API |
 
 El entrypoint declara las ConVars y el único runtime general antes de incluir
 los módulos. Incluye logging primero, después detector y finalmente integraciones;
 así el logger y los datos del detector están declarados antes de los callbacks
-del principal. Cada módulo conserva su estado específico. Los tres se compilan
+del principal. Cada módulo conserva su estado específico. Los cuatro se compilan
 dentro de `l4d2_speedwatch.smx`; no son plugins independientes. El contrato público
 para consumidores sigue en `include/l4d2_speedwatch.inc`.
 
@@ -56,12 +57,13 @@ comprobar la biblioteca: la notificación proviene del proveedor activo. Las
 llamadas a natives opcionales sí se protegen con la presencia de su biblioteca.
 
 - `OnPlayerRunCmdPre`: comprueba mapa/observación/pausa/readyup/sincronización y elegibilidad en memoria,
-  e incrementa el contador entero de comandos. Para humanos consulta directamente
+  e incrementa el contador entero de comandos. Solo para slots monitorizados consulta directamente
   la ConVar de debug y, si está activo, la máscara de flags. Sin traza habilitada
   no obtiene userid ni consulta propiedades de entidades, formatea texto o envía chat.
 - Un timer compartido de 1 s; recorre los slots y consulta estado de los humanos.
 - Solo humanos vivos en equipos 2 o 3. También puede observar infectados fantasma
-  si el motor los considera vivos. Bots y espectadores no se evalúan.
+  si el motor los considera vivos. Bots y espectadores no se evalúan ni generan traza por comando.
+  No se exige un número fijo de humanos ni equipos completos; se admiten tamaños menores a 4v4.
 - Exceso acumulado por cliente, limitado a dos veces el buffer. Se reduce cuando
   llegan menos comandos de los permitidos. Una ventana sin exceso corta la racha.
 - Tres muestras consecutivas por encima del buffer antes de alertar.
@@ -144,6 +146,17 @@ Son estimaciones matemáticas, no resultados de SRCDS. Un exceso de hasta el 10%
 queda dentro del margen por diseño. Ráfagas intermitentes pueden quedar bajo
 los umbrales; las modificaciones que mantengan la cadencia normal quedan fuera
 del alcance de esta señal.
+
+## Contexto diagnóstico de L4D2
+
+Desde 0.8.1, las alertas y el debug de muestras pueden incluir una fotografía
+de clase, suelo/aire, agua, salud, adrenalina, inmovilización, velocidad horizontal
+y configuración de bhop. No es un agregado temporal ni cambia la regla de sospecha.
+Se captura antes de los forwards y solo cuando se necesita escribirla, sin arrays
+adicionales por jugador ni consultas físicas en `OnPlayerRunCmdPre`.
+El formato, los datos desconocidos y las pruebas pendientes están en
+[contexto de L4D2](context.md). `sm_speedwatch_status` muestra población/configuración
+actual y omite los espectadores del listado de jugadores.
 
 ## Coste esperado
 
