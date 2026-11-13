@@ -30,7 +30,10 @@ sobre servicio aislado usan la arquitectura del host y no validan el ABI del jue
 ## Windows x86
 
 Requiere Python 3.12, git, make y una terminal de MSVC inicializada para x86. CI usa
-`ilammy/msvc-dev-cmd` con `arch: x86`. No se declara soporte de cross-build desde Linux.
+`scripts/setup-msvc.py`: localiza Visual Studio con `vswhere`, ejecuta el
+`vcvarsall.bat x86` instalado y exporta los cambios a `GITHUB_ENV` para los pasos
+siguientes. No depende de una acción JavaScript para inicializar MSVC.
+No se declara soporte de cross-build desde Linux.
 
 ```sh
 make deps-exts-windows PYTHON=python

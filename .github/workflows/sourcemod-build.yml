@@ -59,10 +59,9 @@ jobs:
           python-version: '3.12'
       - if: matrix.platform == 'linux'
         run: sudo apt-get update && sudo apt-get install -y g++-multilib python3-venv make
-      - if: matrix.platform == 'windows'
-        uses: ilammy/msvc-dev-cmd@v1
-        with:
-          arch: x86
+      - name: Initialize MSVC x86 environment
+        if: matrix.platform == 'windows'
+        run: python scripts/setup-msvc.py
       - uses: actions/cache@v5
         with:
           path: .deps/exts-${{ matrix.platform }}

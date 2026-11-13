@@ -36,7 +36,8 @@ Los sanitizadores se ejecutan sobre el núcleo aislado en arquitectura del host
 usa `-m32`; no confundir ambas evidencias. No hay captura detallada implementada
 que pueda desbordar un historial: solo registros acotados y agregados saturantes.
 
-En Windows: abrir terminal x86 de MSVC (CI usa msvc-dev-cmd), Python 3.12 y make;
+En Windows: abrir terminal x86 de MSVC (CI inicializa `vcvarsall.bat x86`
+mediante `scripts/setup-msvc.py`), Python 3.12 y make;
 `make deps-exts-windows build-exts-windows test-exts-windows package-exts-windows
 PYTHON=python`. Todos los procesos externos se ejecutan con `check=True`; un fallo
 no queda oculto tras el éxito de una instrucción posterior. No se usan wrappers de
