@@ -41,7 +41,8 @@ release-linux:
 	$(PYTHON) scripts/package-native.py release --platform linux --extension "$(EXTS_PACKAGE_LINUX_DIR)" --smx "$(SMX_PACKAGE_DIR)" --basename "$(LINUX_RELEASE_BASENAME)"
 release-windows:
 	$(PYTHON) scripts/package-native.py release --platform windows --extension "$(EXTS_PACKAGE_WINDOWS_DIR)" --smx "$(SMX_PACKAGE_DIR)" --basename "$(WINDOWS_RELEASE_BASENAME)"
-release: package-smx package-exts-linux release-linux
+release: package-smx package-exts-linux
+	$(MAKE) release-linux
 validate-artifact:
 	$(PYTHON) scripts/package-native.py validate --platform "$(PLATFORM)"
 build-api-test:

@@ -71,7 +71,9 @@ El build SourcePawn antiguo continúa disponible con `SPCOMP=deps/sourcemod-linu
 addons/sourcemod/scripting/spcomp64`; el directorio antiguo no es el default.
 
 `make release` conserva un alias local: empaqueta las salidas existentes de SMX y
-Linux y ejecuta `release-linux`. Ya no genera un ZIP ambiguo sin plataforma.
+Linux y ejecuta `release-linux` solo después de completar ambos paquetes. Esta
+dependencia también se respeta con `make -j3 release`; si falla un staging no se
+inicia la fusión. Ya no genera un ZIP ambiguo sin plataforma.
 `make clean` llama a ambas limpiezas de plataforma; estas conservan los outputs
 SMX compartidos y los ZIP existentes, evitando borrar el trabajo concurrente de
 la otra plataforma. Se pueden retirar manualmente esos compartidos cuando no haya
