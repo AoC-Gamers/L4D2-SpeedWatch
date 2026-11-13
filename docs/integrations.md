@@ -124,3 +124,9 @@ público conserva los campos de muestra y la firma del forward. No se expone com
 live una fase inferida a partir de `round_start` o de movimiento del jugador.
 
 La matriz de carga, descarga y transiciones está en [pruebas pendientes](testing.md).
+
+## Extensión nativa opcional
+
+Los callbacks de biblioteca solo invalidan disponibilidad y solicitan reconciliación. El timer verifica todos los natives y la versión de la extensión antes de usarlos. La pérdida de diagnóstico invalida el historial conservadoramente; pausa, readyup y versusEndForwardObserved mantienen sus reglas. No se ejecutan comandos del proveedor.
+
+Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).

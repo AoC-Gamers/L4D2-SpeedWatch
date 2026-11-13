@@ -1,4 +1,4 @@
-# L4D2 SpeedWatch 0.8.0
+# L4D2 SpeedWatch 0.9.0
 
 [![SourceMod Build](https://github.com/AoC-Gamers/L4D2-SpeedWatch/actions/workflows/sourcemod-build.yml/badge.svg)](https://github.com/AoC-Gamers/L4D2-SpeedWatch/actions/workflows/sourcemod-build.yml)
 
@@ -13,6 +13,10 @@ cadencia normal observada; no acredita que un cheat se haya desactivado.
 Repositorio: [AoC-Gamers/L4D2-SpeedWatch](https://github.com/AoC-Gamers/L4D2-SpeedWatch).
 Los paquetes compilados se publican en [Releases](https://github.com/AoC-Gamers/L4D2-SpeedWatch/releases).
 
+La versión 0.9.0 añade un [núcleo nativo opcional de observación](docs/native-core/index.md)
+para bloques de usercmds e intentos de PlayerRunCommand. Sus métricas son diagnóstico
+experimental; las alertas siguen usando el detector heredado y sus mismos umbrales.
+
 ## Funcionalidades
 
 - Evaluación compartida cada segundo, con margen, buffer, gracia y umbral configurables.
@@ -21,7 +25,7 @@ Los paquetes compilados se publican en [Releases](https://github.com/AoC-Gamers/
 - API con client, AccountID, userid y consulta de la última muestra válida.
 - Episodios Active, Recovered e Interrupted para coordinar grabaciones externas.
 - Integraciones opcionales con pause, readyup y Left4DHooks.
-- Código organizado en un principal y tres módulos privados, compilados en un único SMX.
+- Código SourcePawn modular compilado en un único SMX y extensión C++ opcional por plataforma.
 
 ## Documentación
 
@@ -40,9 +44,10 @@ El punto de entrada es [docs/index.md](docs/index.md).
 
 ## Validación
 
-La versión 0.8.0 y los consumidores de API opcional y obligatorio compilan con
-SourcePawn 1.12.0.7255 y `-E`, sin warnings. Las pruebas en SRCDS, la integración
-real con un grabador y la medición de CPU se detallan como pendientes en
-[validación](docs/testing.md).
+Producción y consumidores de API compilan con SourcePawn 1.12.0.7255 y `-E`.
+El core tiene build Linux x86, pruebas del servicio/codec reales y pruebas de
+SourceHook con objeto sintético. Windows x86 tiene targets/CI preparados y sigue
+pendiente de compilación en host Windows. SRCDS y rendimiento siguen pendientes;
+consultar [validación nativa](docs/native-core/validation.md).
 
 Licencia: GPL-3.0-or-later; consultar `LICENSE`.

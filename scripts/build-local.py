@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Compile only production entrypoints declared in plugin-package-map.json."""
 import argparse
+import hashlib
+import json
 import subprocess
 import sys
 from pathlib import Path
 
-from artifact_manifest import clean_output, copy_files, load_manifest, plugin_paths, selected_files
+from artifact_manifest import clean_output, copy_files, load_manifest, plugin_paths, selected_files, sourcepawn_inputs
 
 
 def main() -> int:
@@ -47,6 +49,13 @@ def main() -> int:
             if not destination.is_file() or destination.stat().st_size == 0:
                 raise RuntimeError(f"Expected compiler output missing or empty: {destination}")
     copy_files(root, output, published)
+    package_lock = root / "sourcepawn-package.lock.json"
+    sdk_headers = {str(p.relative_to(spcomp.parent / "include")): hashlib.sha256(p.read_bytes()).hexdigest()
+                   for p in sorted((spcomp.parent / "include").rglob("*")) if p.is_file()}
+    info = {"sdk_package": json.loads(package_lock.read_text()) if package_lock.is_file() else None,
+            "sdk_headers": sdk_headers, "inputs": sourcepawn_inputs(root), "compiler_sha256": hashlib.sha256(spcomp.read_bytes()).hexdigest(),
+            "binaries": {str(p).replace("\\", "/"): hashlib.sha256((output / p).read_bytes()).hexdigest() for p in plugins}}
+    (output / "sourcepawn-build-info.json").write_text(json.dumps(info, indent=2) + "\n")
     print(f"Production build completed in {output}")
     return 0
 

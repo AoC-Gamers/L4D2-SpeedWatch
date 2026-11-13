@@ -90,3 +90,9 @@ de comandos / tickrate; no es un multiplicador medido de velocidad física.
 Para configurar el archivo y sus flags, consultar [logs y debug](logging.md).
 Antes de probar con proveedores, revisar [integraciones opcionales](integrations.md),
 especialmente el escaneo de detours de Left4DHooks durante carga tardía.
+
+## Extensión opcional y paquetes por plataforma
+
+En 0.9.0 se instala el ZIP Linux x86 o Windows x86. La extensión es opcional; `sm_speedwatch_core_compare 1` habilita diagnóstico experimental, sin cambiar la fuente de alertas. `0` lo suspende. Los defaults de dependencias ahora están en `.deps/smx` y `.deps/exts-<plataforma>`; consultar build-system para migrar overrides.
+
+Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).

@@ -1,0 +1,5 @@
+import os
+builder.SetBuildFolder('package')
+dest=builder.AddFolder('addons/sourcemod/extensions')
+for task in Extension.extensions:
+  builder.AddCopy(task.binary,dest)

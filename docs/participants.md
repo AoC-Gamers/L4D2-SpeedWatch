@@ -112,3 +112,9 @@ universal, ni el aforo del modo determina sus valores.
 
 No se añaden en este parche límites de 220/250/300 unidades/s ni nuevas alertas
 físicas: requieren validar el estado y las modificaciones efectivas del servidor.
+
+## Registros del núcleo nativo
+
+La extensión de 0.9.0 añade registros solo para participantes elegibles, con userid/serial/generación, sin mínimo de aforo. No crea historial pesado de espectadores. Su grupo de contexto físico no está disponible; el contrato temporal de infectados fantasma permanece.
+
+Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).

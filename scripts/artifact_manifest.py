@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Shared production allowlist for the local build and CI release pipeline."""
 import json
+import hashlib
 import shutil
 from pathlib import Path
 
@@ -66,6 +67,7 @@ def validate_artifact(root: Path, artifact: Path, *, full: bool = True) -> None:
     if full:
         expected |= selected_files(root, {"files": ["LICENSE"]})
         expected.add(Path("compile.log"))
+        expected.add(Path("sourcepawn-build-info.json"))
         actual = {p.relative_to(artifact) for p in artifact.rglob("*") if p.is_file()}
     else:
         actual = {p.relative_to(artifact) for p in (artifact / "addons").rglob("*") if p.is_file()}
@@ -75,3 +77,15 @@ def validate_artifact(root: Path, artifact: Path, *, full: bool = True) -> None:
     for relative in [*plugins, *([Path("compile.log")] if full else [])]:
         if (artifact / relative).stat().st_size == 0:
             raise ValueError(f"Empty artifact file: {relative}")
+
+
+def sourcepawn_inputs(root: Path) -> dict[str, str]:
+    directory = root / "addons/sourcemod/scripting"
+    return {str(p.relative_to(root)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest()
+            for p in sorted(directory.rglob("*")) if p.suffix in (".sp", ".inc") and not p.stem.endswith("_test")}
+
+
+def native_source_hashes(root: Path) -> dict[str, str]:
+    files = [p for p in (root / "extension").rglob("*") if p.is_file()]
+    files += [root / p for p in ("AMBuildScript", "configure.py", "PackageScript", "dependencies.lock.json")]
+    return {str(p.relative_to(root)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}

@@ -1,14 +1,16 @@
 name: SourceMod Build
-
 on:
   push:
-    branches:
-      - main
-      - develop
+    branches: [main, develop]
   pull_request:
     paths:
       - .github/workflows/sourcemod-build.yml
       - Makefile
+      - '*Build*'
+      - PackageScript
+      - configure.py
+      - '*lock.json'
+      - extension/**
       - plugin-package-map.json
       - scripts/**
       - tests/**
@@ -17,174 +19,145 @@ on:
       - LICENSE
       - docs/**
   workflow_dispatch:
-    inputs:
-      sourcemod_version:
-        description: SourceMod version to download
-        required: false
-        default: "1.12"
-
 concurrency:
   group: sourcemod-build-${{ github.ref }}
   cancel-in-progress: true
-
 permissions:
   contents: read
-
-env:
-  SOURCEMOD_VERSION: ${{ inputs.sourcemod_version || '1.12' }}
-
 jobs:
-  deps-smx:
-    runs-on: ubuntu-latest
-
+  smx:
+    runs-on: ubuntu-22.04
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Install SourceMod build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes python3 make
-
-      - name: Restore SourceMod dependency cache
-        id: cache
-        uses: actions/cache/restore@v5
+      - uses: actions/checkout@v6
+      - run: sudo apt-get update && sudo apt-get install -y python3 make g++-multilib
+      - uses: actions/cache@v5
         with:
-          path: deps
-          key: ${{ runner.os }}-smx-deps-${{ env.SOURCEMOD_VERSION }}-${{ hashFiles('scripts/fetch-sourcemod.py', 'Makefile') }}
-
-      - name: Resolve SourceMod dependencies
-        if: steps.cache.outputs.cache-hit != 'true'
-        run: make deps-smx PYTHON=python3 SOURCEMOD_VERSION="${SOURCEMOD_VERSION}"
-
-      - name: Save SourceMod dependency cache
-        if: steps.cache.outputs.cache-hit != 'true'
-        uses: actions/cache/save@v5
+          path: .deps/smx
+          key: smx-linux-${{ hashFiles('sourcepawn-package.lock.json', 'scripts/fetch-sourcemod.py') }}
+      - run: make deps-smx
+      - run: make build-smx build-api-test test-ci package-smx
+      - uses: actions/upload-artifact@v6
         with:
-          path: deps
-          key: ${{ steps.cache.outputs.cache-primary-key }}
-
-  build-smx:
-    needs: deps-smx
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Install SourceMod build dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes python3 make
-
-      - name: Restore SourceMod dependency cache
-        uses: actions/cache/restore@v5
-        with:
-          path: deps
-          key: ${{ runner.os }}-smx-deps-${{ env.SOURCEMOD_VERSION }}-${{ hashFiles('scripts/fetch-sourcemod.py', 'Makefile') }}
-          fail-on-cache-miss: true
-
-      - name: Test build and packaging rules
-        run: make test-ci PYTHON=python3
-
-      - name: Build SourceMod plugin
-        run: make build-smx PYTHON=python3 SPCOMP="deps/sourcemod-linux/addons/sourcemod/scripting/spcomp64"
-
-      - name: Upload SourceMod build tree
-        uses: actions/upload-artifact@v6
-        with:
-          name: smx-build
-          path: .build/smx
+          name: smx-package
+          path: .build/package-smx
           if-no-files-found: error
           retention-days: 1
-
-      - name: Upload SourceMod compile log
-        uses: actions/upload-artifact@v6
+  native:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: linux
+            os: ubuntu-22.04
+          - platform: windows
+            os: windows-2022
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
         with:
-          name: smx-compile-log
-          path: deps/build-smx-compile.log
+          python-version: '3.12'
+      - if: matrix.platform == 'linux'
+        run: sudo apt-get update && sudo apt-get install -y g++-multilib python3-venv make
+      - if: matrix.platform == 'windows'
+        uses: ilammy/msvc-dev-cmd@v1
+        with:
+          arch: x86
+      - uses: actions/cache@v5
+        with:
+          path: .deps/exts-${{ matrix.platform }}
+          key: native-${{ matrix.os }}-x86-${{ hashFiles('dependencies.lock.json', 'scripts/fetch-extension-deps.py') }}
+      - name: Resolve locked SDKs
+        run: make deps-exts-${{ matrix.platform }} PYTHON=python
+      - name: Build and test native extension
+        run: make build-exts-${{ matrix.platform }} test-exts-${{ matrix.platform }} package-exts-${{ matrix.platform }} PYTHON=python
+      - name: Sanitizers (isolated service, host architecture)
+        if: matrix.platform == 'linux'
+        run: python scripts/run-native-tests.py --platform linux --sanitize
+      - uses: actions/upload-artifact@v6
+        with:
+          name: native-package-${{ matrix.platform }}
+          path: .build/package-exts-${{ matrix.platform }}
           if-no-files-found: error
           retention-days: 1
-
   release:
-    permissions:
-      contents: write
-    needs: build-smx
-    runs-on: ubuntu-latest
-
+    needs: [smx, native]
+    runs-on: ubuntu-22.04
+    strategy:
+      matrix:
+        platform: [linux, windows]
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-
-      - name: Install SourceMod release dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install --yes python3 make
-
-      - name: Download SourceMod build tree
-        uses: actions/download-artifact@v8
+      - uses: actions/checkout@v6
+      - uses: actions/download-artifact@v8
         with:
-          name: smx-build
-          path: .build/smx
-
-      - name: Download SourceMod compile log
-        uses: actions/download-artifact@v8
+          name: smx-package
+          path: .build/package-smx
+      - uses: actions/download-artifact@v8
         with:
-          name: smx-compile-log
-          path: deps
-
-      - name: Resolve artifact channel
-        id: artifact
+          name: native-package-${{ matrix.platform }}
+          path: .build/package-exts-${{ matrix.platform }}
+      - name: Resolve existing channel names
+        id: channel
         shell: bash
         run: |
-          case "${GITHUB_REF_NAME}" in
-            main)
-              echo "basename=l4d2-speedwatch-latest" >> "$GITHUB_OUTPUT"
-              echo "tag=channel/latest" >> "$GITHUB_OUTPUT"
-              echo "release_name=Latest" >> "$GITHUB_OUTPUT"
-              echo "prerelease=false" >> "$GITHUB_OUTPUT"
-              ;;
-            develop)
-              echo "basename=l4d2-speedwatch-develop" >> "$GITHUB_OUTPUT"
-              echo "tag=channel/develop" >> "$GITHUB_OUTPUT"
-              echo "release_name=Develop" >> "$GITHUB_OUTPUT"
-              echo "prerelease=true" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "basename=l4d2-speedwatch-pr-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-              ;;
+          case "$GITHUB_REF_NAME" in
+            main) channel=latest ;;
+            develop) channel=develop ;;
+            *) channel="pr-${GITHUB_SHA::7}" ;;
           esac
-
-      - name: Stage, validate and create release archive
-        env:
-          RELEASE_BASENAME: ${{ steps.artifact.outputs.basename }}
-        run: make release PYTHON=python3 RELEASE_BASENAME="${RELEASE_BASENAME}"
-
-      - name: Upload release zip
-        uses: actions/upload-artifact@v6
+          echo "basename=l4d2-speedwatch-${{ matrix.platform }}-$channel" >> "$GITHUB_OUTPUT"
+      - name: Merge and validate existing binaries without SDKs
+        run: make release-${{ matrix.platform }} validate-artifact PLATFORM=${{ matrix.platform }} RELEASE_BASENAME=unused LINUX_RELEASE_BASENAME=${{ steps.channel.outputs.basename }} WINDOWS_RELEASE_BASENAME=${{ steps.channel.outputs.basename }}
+      - uses: actions/upload-artifact@v6
         with:
-          name: ${{ steps.artifact.outputs.basename }}
-          path: dist/release/${{ steps.artifact.outputs.basename }}.zip
+          name: release-${{ matrix.platform }}
+          path: dist/release/*.zip
           if-no-files-found: error
           retention-days: 14
-
-      - name: Move channel tag
-        if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
-        shell: bash
-        env:
-          CHANNEL_TAG: ${{ steps.artifact.outputs.tag }}
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "$CHANNEL_TAG" "$GITHUB_SHA"
-          git push origin "refs/tags/${CHANNEL_TAG}" --force
-
-      - name: Publish channel release
-        if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
-        uses: softprops/action-gh-release@v3
+  publish:
+    needs: release
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
+    runs-on: ubuntu-22.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
         with:
-          tag_name: ${{ steps.artifact.outputs.tag }}
-          name: ${{ steps.artifact.outputs.release_name }}
-          files: dist/release/${{ steps.artifact.outputs.basename }}.zip
-          draft: false
-          prerelease: ${{ steps.artifact.outputs.prerelease == 'true' }}
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: release-*
+          path: dist/release
+          merge-multiple: true
+      - name: Resolve channel tag
+        id: channel
+        shell: bash
+        run: |
+          if [ "$GITHUB_REF_NAME" = main ]; then
+            {
+              echo 'tag=channel/latest'
+              echo 'name=Latest'
+              echo 'prerelease=false'
+            } >> "$GITHUB_OUTPUT"
+          else
+            {
+              echo 'tag=channel/develop'
+              echo 'name=Develop'
+              echo 'prerelease=true'
+            } >> "$GITHUB_OUTPUT"
+          fi
+      - name: Move channel tag after all required builds
+        env:
+          CHANNEL_TAG: ${{ steps.channel.outputs.tag }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git tag -f "$CHANNEL_TAG" "$GITHUB_SHA"
+          git push origin "refs/tags/$CHANNEL_TAG" --force
+      - uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ steps.channel.outputs.tag }}
+          name: ${{ steps.channel.outputs.name }}
+          files: dist/release/*.zip
+          fail_on_unmatched_files: true
+          prerelease: ${{ steps.channel.outputs.prerelease == 'true' }}

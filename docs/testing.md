@@ -185,3 +185,9 @@ remotos de cada commit y la publicación de canales se consultan en
 [GitHub Actions](https://github.com/AoC-Gamers/L4D2-SpeedWatch/actions/workflows/sourcemod-build.yml).
 Las comprobaciones anteriores describen evidencia local y no sustituyen el
 resultado remoto ni las pruebas en SRCDS.
+
+## Validación de 0.9.0
+
+La evidencia del core está separada en pruebas de lógica real, SDK ABI x86, SourceHook con objeto sintético, pipeline y matriz pendiente de SRCDS. Las pruebas anteriores de 0.8.0 son históricas; no acreditan el comportamiento runtime del nuevo núcleo.
+
+Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).

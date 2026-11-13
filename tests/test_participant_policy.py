@@ -172,9 +172,12 @@ class ParticipantSourceTests(unittest.TestCase):
     def test_existing_lifecycle_and_alert_functions_unchanged(self):
         source = SOURCE.read_text(encoding='utf-8')
         expected = EXPECTED_UNCHANGED
+        # Native observation teardown is the only permitted addition to legacy resets.
         for name, digest in expected.items():
             with self.subTest(function=name):
-                self.assertEqual(hashlib.sha256(function(source, name).encode()).hexdigest(), digest)
+                self.assertEqual(hashlib.sha256(function(source, name)
+                    .replace("    SetNativeParticipant(client, false);\n", "")
+                    .replace("    PulseNativeCore(false);\n", "").encode()).hexdigest(), digest)
 
 
 EXPECTED_UNCHANGED = {

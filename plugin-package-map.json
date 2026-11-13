@@ -4,6 +4,11 @@
       "root": [
         "l4d2_speedwatch"
       ]
+    },
+    "extensions": {
+      "root": [
+        "l4d2_speedwatch_core"
+      ]
     }
   },
   "artifact": {
@@ -17,12 +22,14 @@
             "files": [
               "logging.sp",
               "integrations.sp",
-              "detector.sp"
+              "detector.sp",
+              "native_core.sp"
             ]
           },
           "include": {
             "files": [
-              "l4d2_speedwatch.inc"
+              "l4d2_speedwatch.inc",
+              "l4d2_speedwatch_core.inc"
             ]
           }
         },

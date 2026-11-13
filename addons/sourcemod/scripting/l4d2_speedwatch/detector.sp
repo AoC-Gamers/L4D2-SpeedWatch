@@ -118,8 +118,10 @@ public void OnPlayerRunCmdPre(int client, int buttons, int impulse, const float 
 public Action OnSampleTimer(Handle timer)
 {
     float now            = GetEngineTime();
+    ReconcileNativeCore();
     if (!g_Runtime.mapLoaded || g_Runtime.observationEnded || !bReconcileObservation(now))
     {
+        PulseNativeCore(false);
         g_Runtime.sampleValid = false;
         g_LastEngineTime = now;
         g_LastInterval = GetTickInterval();
@@ -160,6 +162,7 @@ public Action OnSampleTimer(Handle timer)
         return Plugin_Continue;
     }
 
+    PulseNativeCore(true);
     float allowed  = expected * g_cvRate.FloatValue;
     float buffer   = g_cvBurst.FloatValue / interval;
     int   required = g_cvSamples.IntValue;
@@ -188,6 +191,7 @@ public Action OnSampleTimer(Handle timer)
         {
             ResetClient(client, now);
             g_bMonitor[client] = true;
+            SetNativeParticipant(client, true);
             DebugLog(DEBUG_LIFECYCLE, "lifecycle", "event=tracking_started slot=%d userid=%d grace=%.1f", client, GetClientUserId(client), g_cvGrace.FloatValue);
             if (FlushDetectionEvents() && !bEvaluationCurrent(generation))
             {
@@ -200,6 +204,9 @@ public Action OnSampleTimer(Handle timer)
         g_Commands[client]  = 0;
         g_LastRate[client]  = float(commands) / elapsed;
         g_LastRatio[client] = float(commands) / expected;
+        // Reconcilia autorización tardía y registros retirados entre evaluaciones.
+        SetNativeParticipant(client, true);
+        ReadNativeSample(client);
         if (now < g_GraceUntil[client])
         {
             StoreClientSample(client, now, true);
@@ -286,6 +293,7 @@ void ResetClient(int client, float now, SpeedWatchDetectionReason reason = Speed
     {
         DebugLog(DEBUG_LIFECYCLE, "lifecycle", "event=client_reset slot=%d commands=%d excess=%.2f strikes=%d", client, g_Commands[client], g_Debt[client], g_Strikes[client]);
     }
+    SetNativeParticipant(client, false);
     g_bHasSample[client] = false;
     g_bMonitor[client]   = false;
     g_Commands[client]   = 0;
@@ -310,6 +318,7 @@ void ResetAll(float now, const char[] reason, SpeedWatchDetectionReason interrup
     DebugLog(DEBUG_LIFECYCLE, "lifecycle", "event=reset_all reason=%s", reason);
     g_Runtime.sampleValid = false;
     g_Runtime.observationGeneration++;
+    PulseNativeCore(false);
     g_LastEngineTime = now;
     g_LastInterval   = GetTickInterval();
     g_LastTick       = GetGameTickCount();

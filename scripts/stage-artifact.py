@@ -18,10 +18,13 @@ def main() -> int:
     metadata = selected_files(root, {"files": ["LICENSE"]})
     if not compile_log.is_file() or compile_log.stat().st_size == 0:
         raise FileNotFoundError(f"Compile log missing or empty: {compile_log}")
+    if not (build / "sourcepawn-build-info.json").is_file():
+        raise FileNotFoundError("Missing SourcePawn build metadata")
     clean_output(root, output)
     shutil.copytree(build / "addons", output / "addons")
     copy_files(root, output, metadata)
     shutil.copy2(compile_log, output / "compile.log")
+    shutil.copy2(build / "sourcepawn-build-info.json", output / "sourcepawn-build-info.json")
     validate_artifact(root, output)
     print(f"SourceMod artifact generated in {output}")
     return 0

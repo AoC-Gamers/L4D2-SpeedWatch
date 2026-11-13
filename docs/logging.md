@@ -92,3 +92,9 @@ cliente, un admin autorizado puede usar `sm_cvar sm_speedwatch_debug 1` y
 valor en consola de servidor. No hay rotación automática del archivo.
 
 Las pruebas de creación, append, permisos y debug están en [validación](testing.md).
+
+## Diagnóstico experimental nativo
+
+Debug samples registra native_comparison una vez por sample_id con capacidades, calidad y duración. Las alertas mantienen su log obligatorio y fuente heredada. Status muestra el backend por métrica, registros activos, memoria del servicio y edad desde recepción; no anuncia comandos ejecutados.
+
+Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).

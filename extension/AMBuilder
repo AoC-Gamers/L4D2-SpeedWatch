@@ -1,0 +1,12 @@
+import json
+import os
+manifest=json.load(open(os.path.join(builder.sourcePath,'plugin-package-map.json')))
+if manifest['build'].get('extensions') != {'root':['l4d2_speedwatch_core']}:
+  raise Exception('Only the declared l4d2_speedwatch_core entrypoint is supported')
+project = Extension.HL2Project(builder, 'l4d2_speedwatch_core.ext')
+project.sources += [os.path.join(Extension.sm_root, 'public', 'smsdk_ext.cpp'),
+  'extension.cpp', 'hooks/CommandHooks.cpp', 'engine/Clock.cpp', 'engine/AbiChecks.cpp',
+  'telemetry/ObservationService.cpp', 'api/SampleCodec.cpp', 'api/NativeBridge.cpp']
+sdk = Extension.sdks['l4d2']
+Extension.HL2Config(project, 'l4d2_speedwatch_core.ext', sdk)
+Extension.extensions = builder.Add(project)

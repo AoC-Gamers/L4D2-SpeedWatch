@@ -25,7 +25,7 @@ al mecanismo preventivo de SMAC.
 
 ## Diseño
 
-El plugin se organiza en un entrypoint y tres módulos privados bajo
+El plugin se organiza en un entrypoint y cuatro módulos privados bajo
 `addons/sourcemod/scripting/`:
 
 | Archivo | Responsabilidad |
@@ -34,11 +34,12 @@ El plugin se organiza en un entrypoint y tres módulos privados bajo
 | `l4d2_speedwatch/logging.sp` | Logger, archivo, categorías debug y registros obligatorios |
 | `l4d2_speedwatch/integrations.sp` | Forwards y reconciliación de pause, readyup y Left4DHooks |
 | `l4d2_speedwatch/detector.sp` | Conteo, evaluación, resets, muestras, episodios, alertas e implementación de la API |
+| `l4d2_speedwatch/native_core.sp` | Disponibilidad de extensión, coordinación de ventanas y diagnóstico independiente |
 
 El entrypoint declara las ConVars y el único runtime general antes de incluir
 los módulos. Incluye logging primero, después detector y finalmente integraciones;
 así el logger y los datos del detector están declarados antes de los callbacks
-del principal. Cada módulo conserva su estado específico. Los tres se compilan
+del principal. Cada módulo conserva su estado específico. Los cuatro se compilan
 dentro de `l4d2_speedwatch.smx`; no son plugins independientes. El contrato público
 para consumidores sigue en `include/l4d2_speedwatch.inc`.
 
@@ -169,3 +170,9 @@ y [SDKTools hooks.cpp](https://github.com/alliedmodders/sourcemod/blob/master/ex
 
 El contrato de episodios y recuperación se describe en [grabación](recording.md).
 Las dependencias se detallan en [integraciones opcionales](integrations.md).
+
+## Núcleo nativo opcional
+
+La capa C++ de 0.9.0 agrega metadatos e intentos en ventanas independientes. SourcePawn conserva su detector de cadencia, umbrales y episodios; no se suma recepción con simulación ni se sustituye la señal sin calibración.
+
+Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).

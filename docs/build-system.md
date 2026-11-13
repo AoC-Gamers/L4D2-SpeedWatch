@@ -1,123 +1,113 @@
 # Build y CI/CD
 
-[Índice de documentación](index.md) · [README](../README.md)
+[Índice](index.md) · [Núcleo nativo](native-core/index.md)
 
-El CI/CD separa dependencias, compilación y release en etapas, con scripts
-compartidos entre `make` y GitHub Actions.
-La plataforma del pipeline es Linux y usa SourceMod 1.12.
+`make` es la entrada común. SourcePawn usa los scripts Python existentes y la
+extensión usa AMBuild (`configure.py`, `AMBuildScript`, `extension/AMBuilder` y
+`PackageScript`), adaptados de Custom-Fakelag `b871f52`. No hay CMake/Meson ni
+compilación implícita al empaquetar.
 
-## Manifiesto de producción
+## Linux x86
 
-`plugin-package-map.json` controla dos listas:
+Requiere Python 3.12, git, make, g++ con multilib (`g++-multilib` en Ubuntu) y venv.
+Los comandos de dependencias son los únicos que usan red:
 
-- `build.plugins`: entrypoints que se compilan. Solo declara `l4d2_speedwatch`.
-- `artifact.addons.sourcemod`: fuentes, includes y traducciones publicados.
-
-Los módulos privados `logging.sp`, `integrations.sp` y `detector.sp` se publican
-en `addons/sourcemod/scripting/l4d2_speedwatch/`. Se incluyen desde el principal;
-no se añaden a `build.plugins` ni generan SMX propios. El paquete conserva estos
-archivos junto con el include público de la API. Los includes de terceros
-(`pause`, `readyup` y `left4dhooks*`) permanecen en el checkout y se excluyen del
-ZIP. Para recompilar con todas las dependencias, usar el checkout del repositorio.
-
-La documentación (`docs/` y `README.md`) se conserva solo en el repositorio y se
-excluye del artefacto y del ZIP de release. El paquete mantiene `LICENSE` y
-`compile.log` junto con los archivos de producción.
-
-`build-local.py` recorre exclusivamente los plugins declarados, sin compilar
-por wildcard los `.sp` presentes en `scripting/`. La ausencia de una fuente
-mapeada o cualquier warning/error de `spcomp` falla el build. Antes de compilar,
-se recrea el directorio de salida para descartar SMX de ejecuciones anteriores.
-
-`addons/sourcemod/scripting/l4d2_speedwatch_test.sp` se conserva en el checkout,
-pero no está en el manifiesto de producción. El workflow no ejecuta
-`make build-api-test`: no genera sus binarios opcional ni obligatorio. El test
-tampoco se incluye como fuente en el ZIP de producción. Su compilación manual
-sigue disponible según [API pública](api.md#consumidor-de-diagnóstico).
-
-## Targets y salidas
-
-Ejecutar desde la raíz del proyecto:
-
-| Target | Función y salida |
-| --- | --- |
-| `make deps-smx` | Descarga o reutiliza el SDK en `deps/sourcemod-linux` |
-| `make build-smx` | Compila producción y copia los archivos mapeados a `.build/smx/addons/sourcemod/`; registra `deps/build-smx-compile.log` |
-| `make package-smx` | Crea `.build/package-smx` con addons, licencia y compile.log, sin documentación |
-| `make validate-artifact` | Valida `dist/sourcemod/artifact` contra el manifiesto, la licencia y el log de compilación |
-| `make release` | Prepara el paquete, lo lleva a `dist/sourcemod/artifact`, valida y genera `dist/release/l4d2-speedwatch-local.zip` |
-| `make test-ci` | Ejecuta las pruebas de selección y empaquetado; no compila plugins de diagnóstico |
-| `make build-api-test` | Compilación manual del test en `.build/tests/`, fuera de CI y del paquete |
-| `make clean` | Elimina únicamente `.build/` y `dist/`; conserva el SDK |
-
-Flujo local equivalente al build y release del workflow:
-
-```bash
-make test-ci
-make deps-smx
-make build-smx
-make release RELEASE_BASENAME=l4d2-speedwatch-local
+```sh
+make deps-smx deps-exts-linux
+make build-smx build-api-test build-exts-linux
+make test-exts-linux test-ci
+python3 scripts/run-native-tests.py --platform linux --sanitize
+make package-smx package-exts-linux
+make release-linux validate-artifact
 ```
 
-El binario de producción queda en
-`.build/smx/addons/sourcemod/plugins/l4d2_speedwatch.smx`.
-Los overrides `SM_SCRIPTING`, `SPCOMP` y `SM_VERSION` permiten seleccionar el SDK
-y el compilador. `SOURCEMOD_VERSION` selecciona la rama del helper; actualmente admite
-`1.12`. `PYTHON`, `SMX_BUILD_DIR`, `SMX_PACKAGE_DIR` y `RELEASE_BASENAME` ajustan
-las herramientas y salidas. Los directorios generados deben quedar dentro de
-`.build/` o `dist/`. El número de build del SDK no está fijado y la caché puede
-conservar un SDK anterior de la misma rama.
+El build SourcePawn siempre usa `-E`. La extensión usa C++14, `-m32`, optimización,
+visibilidad oculta y warnings fatales; el script registra la salida completa y
+propaga cualquier error. Las pruebas unitarias ordinarias usan x86. Sanitizadores
+sobre servicio aislado usan la arquitectura del host y no validan el ABI del juego.
+`AbiChecks.cpp` forma parte de la extensión x86 y valida la firma SDK.
 
-## Workflow
+## Windows x86
 
-Archivo: `.github/workflows/sourcemod-build.yml`.
+Requiere Python 3.12, git, make y una terminal de MSVC inicializada para x86. CI usa
+`ilammy/msvc-dev-cmd` con `arch: x86`. No se declara soporte de cross-build desde Linux.
 
-Se ejecuta en pushes a `main` y `develop`, pull requests que afecten al código,
-documentación o pipeline, y ejecución manual (`workflow_dispatch`).
+```sh
+make deps-exts-windows PYTHON=python
+make build-exts-windows test-exts-windows PYTHON=python
+make package-exts-windows PYTHON=python
+make release-windows validate-artifact PLATFORM=windows PYTHON=python
+```
 
-1. `deps-smx`: restaura la caché del SDK; si falta, ejecuta `make deps-smx` y la guarda.
-2. `build-smx`: restaura el SDK, ejecuta `make test-ci` y `make build-smx`.
-   Sube por separado `.build/smx` y el log de compilación, retenidos un día.
-3. `release`: descarga el build y el log, ejecuta `make release`, y sube el ZIP
-   como artefacto de Actions retenido 14 días. En ramas de canal, publica también
-   la release correspondiente.
+El paquete SMX compartido se obtiene del job Linux o se copia como árbol existente
+a `.build/package-smx`; no hace falta recompilarlo en Windows. `subprocess` con
+`check=True` propaga fallos del compilador, configure, AMBuild, tests y git. No hay
+un wrapper PowerShell que pueda ocultar errores de procesos externos.
 
-Las etapas de dependencias y compilación tienen permiso `contents: read`.
-Solo el job de release solicita `contents: write`. Las operaciones de tag y
-publicación excluyen siempre los eventos `pull_request`.
+## Dependencias y salidas
 
-## Canales de publicación
+| Dominio | Dependencias | Build | Staging |
+| --- | --- | --- | --- |
+| SMX compartido | .deps/smx/sourcemod-linux | .build/smx | .build/package-smx |
+| Extensión Linux x86 | .deps/exts-linux | .build/exts-linux | .build/package-exts-linux |
+| Extensión Windows x86 | .deps/exts-windows | .build/exts-windows | .build/package-exts-windows |
 
-| Contexto | ZIP | Tag y release |
-| --- | --- | --- |
-| Push o ejecución manual en `main` | `l4d2-speedwatch-latest.zip` | `channel/latest`, Latest |
-| Push o ejecución manual en `develop` | `l4d2-speedwatch-develop.zip` | `channel/develop`, Develop como prerelease |
-| Pull request u otra rama manual | `l4d2-speedwatch-pr-<sha7>.zip` | Solo artefacto de Actions; no publica release |
+Las dependencias nativas tienen commits fijados en `dependencies.lock.json`, con
+submódulos fijados por esos repositorios. `resolved.json` registra la resolución.
+No se actualiza una copia de dependencia sucia. SourcePawn usa el paquete
+1.12.0.7255 fijado por URL/SHA256; la caché requiere su marcador de verificación.
+Un destino antiguo no verificado exige elegir un destino limpio, no se reemplaza.
 
-Los tags de canal son móviles: el workflow los actualiza
-al commit de la ejecución y reemplaza el asset del canal. No crea releases
-versionadas por cada build ni despliega en un servidor de juego.
+Se conservan `SPCOMP`, `SM_SCRIPTING`, `SMX_BUILD_DIR`, `SMX_PACKAGE_DIR`,
+`SOURCEMOD_VERSION`/`SM_VERSION` (rama compatible 1.12) y `RELEASE_BASENAME`.
+Los overrides nativos son `EXTS_LINUX_DEPS_DIR`, `EXTS_WINDOWS_DEPS_DIR`,
+`LINUX_BUILD_DIR`, `WINDOWS_BUILD_DIR`, `EXTS_PACKAGE_LINUX_DIR`,
+`EXTS_PACKAGE_WINDOWS_DIR`, `LINUX_RELEASE_BASENAME` y `WINDOWS_RELEASE_BASENAME`.
+Los outputs deben estar dentro de `.build`/`dist`; no se limpia el checkout.
+El build SourcePawn antiguo continúa disponible con `SPCOMP=deps/sourcemod-linux/
+addons/sourcemod/scripting/spcomp64`; el directorio antiguo no es el default.
 
-Repositorio público: [AoC-Gamers/L4D2-SpeedWatch](https://github.com/AoC-Gamers/L4D2-SpeedWatch).
-La rama predeterminada es `main`; `develop` conserva el canal de desarrollo.
-Consultar ejecuciones y artefactos en [GitHub Actions](https://github.com/AoC-Gamers/L4D2-SpeedWatch/actions/workflows/sourcemod-build.yml)
-y paquetes publicados en [Releases](https://github.com/AoC-Gamers/L4D2-SpeedWatch/releases).
-El resultado de cada ejecución corresponde al commit que muestra Actions; la
-publicación de un paquete no acredita una prueba en SRCDS.
+`make release` conserva un alias local: empaqueta las salidas existentes de SMX y
+Linux y ejecuta `release-linux`. Ya no genera un ZIP ambiguo sin plataforma.
+`make clean` llama a ambas limpiezas de plataforma; estas conservan los outputs
+SMX compartidos y los ZIP existentes, evitando borrar el trabajo concurrente de
+la otra plataforma. Se pueden retirar manualmente esos compartidos cuando no haya
+builds en curso. Ningún target de package/release descarga un SDK ni recompila.
 
-## Validación del paquete
+## Manifiesto y contenido de paquetes
 
-`ci-validate-artifact.sh` y `validate-artifact.py` comprueban todos los archivos
-esperados y rechazan archivos adicionales. Solo se admite el SMX declarado en
-`build.plugins`; introducir un SMX de test o de otro plugin hace fallar el staging
-y la creación del ZIP. También se exige un binario y un log no vacíos,
-licencia, fuente principal, módulos privados, API y traducciones. La presencia
-de documentación en el artefacto se rechaza como contenido adicional.
+`build.plugins` selecciona únicamente `l4d2_speedwatch.sp` como entrypoint.
+`build.extensions` declara únicamente `l4d2_speedwatch_core`. Los módulos privados
+se incluyen dentro del SMX y no se compilan como plugins independientes. Los tests
+antiguos y nativo se compilan mediante `build-api-test` y nunca se distribuyen.
 
-El ZIP es un paquete de instalación con las fuentes de producción y su
-compilación registrada. Los scripts, workflow, manifiesto y test de diagnóstico
-se mantienen en el checkout de desarrollo. Para modificar o recompilar el
-proyecto completo, utilizar ese checkout.
+Cada ZIP contiene un SMX, una extensión de su plataforma, fuentes SourcePawn
+permitidas, ambos includes públicos, traducciones, LICENSE, `compile.log`,
+`native-compile.log`, `sourcepawn-build-info.json` y `build-info.json`. Los metadatos
+registran SHA, dependencias, compiladores, inputs y hashes de binarios/payload.
+No se exige `.so` y `.dll` juntos. Gamedata propia no se añade: se necesita la
+`PlayerRunCmd` de SDKTools instalada con SourceMod. Quedan excluidos docs, README,
+SDKs, tests, harnesses, includes de terceros y binarios del juego.
 
-Las pruebas locales de esta cadena y los escenarios pendientes de ejecución
-remota y SRCDS están en [validación](testing.md#cadena-de-build-y-empaquetado).
+El empaquetado valida ELF32/PE32 x86, exports `GetSMExtAPI` y `CreateInterface_MMS`,
+archivos faltantes/vacíos/no permitidos, duplicados de plataforma y hashes. Un
+cambio de inputs impide presentar un binario antiguo como build de las fuentes
+actuales. Las pruebas de empaquetado usan fixtures explícitos, no binarios reales
+del juego. El archivo de metadata no es una firma criptográfica de autenticidad.
+
+## Canales CI
+
+El job `smx` compila el SMX compartido una vez, compila consumidores API, ejecuta
+pruebas Python y prepara su staging. `native` compila/prueba cada plataforma y
+prepara su staging. `release` combina únicamente salidas existentes, sin SDK, y
+valida cada ZIP; falla si falta una etapa requerida. Las cachés son independientes
+por plataforma x86 y lock de dependencias.
+
+Solo `publish`, después de ambas releases, tiene permiso de escritura. Conserva
+`channel/latest` para main y `channel/develop` como prerelease para develop.
+Los PR producen artefactos sin tags/releases ni secretos para código de forks.
+Los assets pasan a `l4d2-speedwatch-linux-latest.zip`,
+`l4d2-speedwatch-windows-latest.zip` y sus equivalentes `-develop` o `-pr-<sha>`.
+El antiguo asset sin plataforma se sustituye por esos dos nombres; los consumidores
+deben seleccionar su plataforma. Preparar el workflow no implica haberlo ejecutado
+ni autoriza publicación remota desde esta tarea.

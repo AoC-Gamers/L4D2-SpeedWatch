@@ -9,6 +9,9 @@
 #include <sourcemod>
 #include <sdktools>
 #include <l4d2_speedwatch>
+#undef REQUIRE_EXTENSIONS
+#include <l4d2_speedwatch_core>
+#define REQUIRE_EXTENSIONS
 
 // Las APIs de los tres proveedores son opcionales al cargar.
 #undef REQUIRE_PLUGIN
@@ -22,7 +25,7 @@ public Plugin myinfo =
     name        = "L4D2 SpeedWatch",
     author      = "Lechuga",
     description = "Reports sustained excess movement commands; never blocks or punishes",
-    version     = "0.8.0",
+    version     = "0.9.0",
     url         = "https://github.com/AoC-Gamers/L4D2-SpeedWatch"
 };
 
@@ -48,6 +51,9 @@ enum struct PluginRuntimeState
     bool sampleValid;           /**< Validez de la última evaluación, independiente del mapa. */
     int  observationGeneration; /**< Invalida una evaluación tras callbacks reentrantes. */
     bool dispatchingDetectionEvents;
+    bool coreAvailable;
+    bool coreNeedsSync;
+    int coreCapabilities;
     bool hasPause;
     bool hasReadyUp;
     bool hasLeft4DHooks;
@@ -67,6 +73,9 @@ enum struct PluginRuntimeState
         this.sampleValid                = false;
         this.observationGeneration      = 0;
         this.dispatchingDetectionEvents = false;
+        this.coreAvailable              = false;
+        this.coreNeedsSync              = true;
+        this.coreCapabilities           = 0;
         this.hasPause                   = false;
         this.hasReadyUp                 = false;
         this.hasLeft4DHooks             = false;
@@ -84,6 +93,7 @@ enum struct PluginRuntimeState
  */
 void DetectLibraries()
 {
+    this.coreNeedsSync = true;
     this.hasPause         = LibraryExists("pause");
     this.hasReadyUp       = LibraryExists("readyup");
     this.hasLeft4DHooks   = LibraryExists("left4dhooks");
@@ -102,7 +112,16 @@ void DetectLibraries()
  */
 void SetLibraryAvailability(const char[] name, bool available)
 {
-    if (StrEqual(name, "pause"))
+    if (StrEqual(name, "l4d2_speedwatch_core"))
+    {
+        this.coreNeedsSync = true;
+        if (!available)
+        {
+            this.coreAvailable = false;
+            this.coreCapabilities = 0;
+        }
+    }
+    else if (StrEqual(name, "pause"))
     {
         this.hasPause       = available;
         this.pauseNeedsSync = true;
@@ -141,6 +160,7 @@ ConVar             g_cvTimescale;
 #include "l4d2_speedwatch/logging.sp"
 #include "l4d2_speedwatch/detector.sp"
 #include "l4d2_speedwatch/integrations.sp"
+#include "l4d2_speedwatch/native_core.sp"
 
 /**
  * Valida L4D2, guarda la carga tardía y registra la biblioteca y los natives.
@@ -212,6 +232,7 @@ public void OnConfigsExecuted()
 public void OnPluginStart()
 {
     LoadTranslations("l4d2_speedwatch.phrases");
+    g_cvCoreCompare = CreateConVar("sm_speedwatch_core_compare", "1", "Collect experimental native diagnostics; detection remains legacy", FCVAR_NONE, true, 0.0, true, 1.0);
     g_cvEnabled      = CreateConVar("sm_speedwatch_enable", "1", "Enable observation", FCVAR_NONE, true, 0.0, true, 1.0);
     g_cvRate         = CreateConVar("sm_speedwatch_rate", "1.10", "Allowed commands / nominal server ticks", FCVAR_NONE, true, 1.02, true, 3.0);
     g_cvBurst        = CreateConVar("sm_speedwatch_burst", "2.0", "Excess-command buffer in nominal tick seconds", FCVAR_NONE, true, 0.5, true, 10.0);
@@ -224,9 +245,10 @@ public void OnPluginStart()
     g_cvDebug        = CreateConVar("sm_speedwatch_debug", "0", "Enable diagnostic file debug; detection alerts are always logged", FCVAR_NONE, true, 0.0, true, 1.0);
     g_cvDebugMask    = CreateConVar("sm_speedwatch_debug_flags", "15", "Debug flags: 1 general, 2 lifecycle, 4 samples, 8 detections, 16 commands", FCVAR_NONE, true, 0.0, true, float(DEBUG_ALL));
     g_Log.Init();
-    DebugLog(DEBUG_GENERAL, "general", "event=plugin_start version=0.8.0 debug=%d flags=%d",
+    DebugLog(DEBUG_GENERAL, "general", "event=plugin_start version=0.9.0 debug=%d flags=%d",
              g_cvDebug.BoolValue, g_cvDebugMask.IntValue);
 
+    g_cvCoreCompare.AddChangeHook(OnDetectorSettingChanged);
     g_cvEnabled.AddChangeHook(OnDetectorSettingChanged);
     g_cvRate.AddChangeHook(OnDetectorSettingChanged);
     g_cvBurst.AddChangeHook(OnDetectorSettingChanged);
@@ -418,6 +440,7 @@ void CloseObservation(float now, const char[] reason)
 public Action OnStatusCommand(int client, int args)
 {
     float now = GetEngineTime();
+    ShowNativeCoreStatus(client);
     ReplyToCommand(client, "[SpeedWatch] map_loaded=%d observation_ended=%d",
                    g_Runtime.mapLoaded, g_Runtime.observationEnded);
     ReplyToCommand(client, "[SpeedWatch] left4dhooks_library=%d game_mode=%d mode_sync_pending=%d versus_end_forward_observed=%d",
@@ -455,6 +478,7 @@ public Action OnStatusCommand(int client, int args)
  */
 public void OnPluginEnd()
 {
+    PulseNativeCore(false);
     g_Runtime.mapLoaded   = false;
     g_Runtime.sampleValid = false;
     for (int client = 1; client <= MaxClients; client++)

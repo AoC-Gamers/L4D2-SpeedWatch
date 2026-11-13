@@ -113,3 +113,9 @@ un terminal si se carga durante un episodio. Recibe las alertas
 reales por forward; no simula speedhack ni dispara alertas artificiales.
 
 Los escenarios de prueba de API y callbacks están en [validación](testing.md).
+
+## API independiente del núcleo
+
+SpeedWatchSample, SpeedWatch_GetClientSample y los dos forwards existentes conservan firmas y significado. La API experimental SpeedWatchCore_ se declara en l4d2_speedwatch_core.inc, con versión y longitud explícitas. El consumidor nativo es de solo consulta y queda fuera del paquete.
+
+Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).
