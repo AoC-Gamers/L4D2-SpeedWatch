@@ -23,7 +23,8 @@ cell_t Sample(IPluginContext* c,const cell_t* p) {
     if (p[4]!=speedwatch::kApiVersion || p[3]<static_cast<cell_t>(speedwatch::kSampleCells)) return c->ThrowNativeError("Unsupported API version or insufficient sample buffer");
     cell_t* out=nullptr; cell_t* end=nullptr;
     constexpr auto bytes=(speedwatch::kSampleCells-1)*sizeof(cell_t);
-    if (p[2]<0 || p[2]>std::numeric_limits<cell_t>::max()-static_cast<cell_t>(bytes)
+    // Windows SDK headers define max as a macro; keep this standard call opaque to it.
+    if (p[2]<0 || p[2]>(std::numeric_limits<cell_t>::max)()-static_cast<cell_t>(bytes)
         || c->LocalToPhysAddr(p[2],&out)!=SP_ERROR_NONE
         || c->LocalToPhysAddr(p[2]+bytes,&end)!=SP_ERROR_NONE) return c->ThrowNativeError("Invalid output address");
     speedwatch::Identity identity;
