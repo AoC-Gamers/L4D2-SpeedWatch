@@ -22,7 +22,7 @@ public Plugin myinfo =
     name        = "L4D2 SpeedWatch",
     author      = "Lechuga",
     description = "Reports sustained excess movement commands; never blocks or punishes",
-    version     = "0.8.0",
+    version     = "0.8.1",
     url         = "https://github.com/AoC-Gamers/L4D2-SpeedWatch"
 };
 
@@ -220,7 +220,7 @@ public void OnPluginStart()
     g_cvDebug        = CreateConVar("sm_speedwatch_debug", "0", "Enable diagnostic file debug; detection alerts are always logged", FCVAR_NONE, true, 0.0, true, 1.0);
     g_cvDebugMask    = CreateConVar("sm_speedwatch_debug_flags", "15", "Debug flags: 1 general, 2 lifecycle, 4 samples, 8 detections, 16 commands", FCVAR_NONE, true, 0.0, true, float(DEBUG_ALL));
     g_Log.Init();
-    DebugLog(DEBUG_GENERAL, "general", "event=plugin_start version=0.8.0 debug=%d flags=%d",
+    DebugLog(DEBUG_GENERAL, "general", "event=plugin_start version=0.8.1 debug=%d flags=%d",
              g_cvDebug.BoolValue, g_cvDebugMask.IntValue);
 
     g_cvEnabled.AddChangeHook(OnDetectorSettingChanged);
@@ -423,9 +423,13 @@ public Action OnStatusCommand(int client, int args)
                    g_cvEnabled.BoolValue, g_Runtime.sampleValid, 1.0 / GetTickInterval(), g_cvRate.FloatValue,
                    g_cvBurst.FloatValue / GetTickInterval());
     ReplyToCommand(client, "[SpeedWatch] recovery_time=%.1fs", g_cvRecoveryTime.FloatValue);
+    MovementProfile profile;
+    CaptureMovementProfile(profile);
+    ReplyToCommand(client, "[SpeedWatch] mode=%s humans_survivor=%d humans_infected=%d survivor_limit=%d infected_limit=%d",
+                   profile.mode, profile.survivors, profile.infected, profile.survivorLimit, profile.infectedLimit);
     for (int target = 1; target <= MaxClients; target++)
     {
-        if (g_bHuman[target] && IsClientInGame(target))
+        if (g_bHuman[target] && IsClientInGame(target) && IsPlayingTeam(GetClientTeam(target)))
         {
             float grace = g_GraceUntil[target] - now;
             if (grace < 0.0)

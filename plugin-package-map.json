@@ -17,7 +17,8 @@
             "files": [
               "logging.sp",
               "integrations.sp",
-              "detector.sp"
+              "detector.sp",
+              "context.sp"
             ]
           },
           "include": {
