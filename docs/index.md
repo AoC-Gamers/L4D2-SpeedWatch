@@ -9,6 +9,7 @@ Documentación del plugin L4D2 SpeedWatch 0.8.0. Elegir la guía según el traba
 | [Instalación y configuración](installation.md) | Requisitos, compilación Linux, archivos de instalación, ConVars, permisos y status |
 | [Build y CI/CD](build-system.md) | Manifiesto, targets, workflow, validación del paquete y canales de releases |
 | [Arquitectura](architecture.md) | Alcance de la señal, runtime, mapa y observación, regla de sospecha y coste esperado |
+| [Participantes y aforos reducidos](participants.md) | Elegibilidad individual, espectadores, 1v1/2v2/3v3/4v4 y alcance de las pruebas |
 | [Integraciones opcionales](integrations.md) | Contratos y comportamiento de Left4DHooks, pause y readyup; carga tardía y sincronización |
 | [Logs y debug](logging.md) | Ruta, ConVars, máscara de flags, registros obligatorios, append, fallos y migración de cfg |
 | [API pública](api.md) | Include, biblioteca, identidad, alertas, consulta de muestras y consumidor de diagnóstico |

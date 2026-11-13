@@ -36,7 +36,7 @@ sm_speedwatch_debug "0"           // Desactivar debug
 | `2` | `lifecycle` | Entrada/salida, cambios de estado, tracking y resets |
 | `4` | `samples` | Validez global, ticks, tiempo real, timescale; comandos, ratio, exceso, gracia y racha por humano |
 | `8` | `detections` | Evolución de sospechas, muestras requeridas y cooldown |
-| `16` | `commands` | Una línea por callback de humano con mapa y observación disponibles, fuera de pausa/readyup/sincronización, incluido cuando no está en tracking; cmdnum, tick del cliente y contador |
+| `16` | `commands` | Una línea por callback de humano monitorizado con mapa y observación disponibles, fuera de pausa/readyup/sincronización; cmdnum, tick del cliente y contador. Los no monitorizados no generan traza |
 
 Las flags se **suman**. Elegir flags no activa debug por sí solo. El default
 `15` excluye la traza por comando; `16`/`31` genera mucho I/O y afecta al CPU.

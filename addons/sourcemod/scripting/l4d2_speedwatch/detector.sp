@@ -62,22 +62,43 @@ bool bCanObserve()
 }
 
 /**
- * Cuenta callbacks de comandos mediante elegibilidad almacenada en memoria.
+ * Elegibilidad individual compartida por el timer y la API.
+ * No exige un aforo mínimo ni presupone 4v4: los slots no son posiciones de equipo.
+ * No se llama desde la ruta por comando, que utiliza g_bMonitor en memoria.
+ */
+bool bIsPlayingHuman(int client)
+{
+    if (client < 1 || client > MaxClients || !g_bHuman[client]
+        || !IsClientInGame(client) || !IsPlayerAlive(client))
+    {
+        return false;
+    }
+    int team = GetClientTeam(client);
+    return team == 2 || team == 3;
+}
+
+/** Indica si hay observación que limpiar; la gracia y el cooldown no son muestras. */
+bool bHasClientObservation(int client)
+{
+    return g_bMonitor[client] || g_bHasSample[client] || g_Detections[client].active
+        || g_Commands[client] != 0 || g_Strikes[client] != 0 || g_Debt[client] > 0.0;
+}
+
+/**
+ * Cuenta callbacks solo para humanos cuyo seguimiento está abierto.
  * No modifica el comando ni utiliza cmdnum/tickcount como reloj de detección.
- * Consulta las ConVars de debug; solo con traza activa obtiene userid y formatea.
+ * Los no monitorizados tampoco consultan debug ni generan traza por comando.
  */
 public void OnPlayerRunCmdPre(int client, int buttons, int impulse, const float vel[3], const float angles[3], int weapon, int subtype, int cmdnum, int tickcount, int seed, const int mouse[2])
 {
-    if (!bCanObserve())
+    if (client < 1 || client > MaxClients || !bCanObserve()
+        || !g_bHuman[client] || !g_bMonitor[client])
     {
         return;
     }
     // Ruta habitual: elegibilidad en memoria, incremento y traza desactivada.
-    if (g_bMonitor[client])
-    {
-        g_Commands[client]++;
-    }
-    if (g_bHuman[client] && g_Log.bDebug(DEBUG_COMMANDS))
+    g_Commands[client]++;
+    if (g_Log.bDebug(DEBUG_COMMANDS))
     {
         char message[192];
         Format(message, sizeof(message), "event=command slot=%d userid=%d cmdnum=%d client_tick=%d tracking=%d count=%d",
@@ -149,9 +170,14 @@ public Action OnSampleTimer(Handle timer)
         {
             continue;
         }
-        if (!IsClientInGame(client) || !IsPlayerAlive(client) || GetClientTeam(client) < 2)
+        if (!bIsPlayingHuman(client))
         {
-            ResetClient(client, now, SpeedWatchReason_ClientUnavailable);
+            // Espectadores y muertos sin observación no necesitan un reset cada segundo.
+            // Al volver a ser elegibles, la rama !g_bMonitor aplica gracia nueva.
+            if (bHasClientObservation(client))
+            {
+                ResetClient(client, now, SpeedWatchReason_ClientUnavailable);
+            }
             if (FlushDetectionEvents() && !bEvaluationCurrent(generation))
             {
                 return Plugin_Continue;
@@ -479,8 +505,7 @@ public any Native_GetClientSample(Handle plugin, int numParams)
     SpeedWatchSample sample;
     bool valid = bCanObserve() && g_Runtime.sampleValid
         && g_bHasSample[client]
-        && g_bHuman[client] && g_bMonitor[client] && IsClientInGame(client)
-        && IsPlayerAlive(client) && GetClientTeam(client) >= 2;
+        && g_bMonitor[client] && bIsPlayingHuman(client);
     if (valid)
     {
         float age = GetEngineTime() - g_ClientSamples[client].engineTime;

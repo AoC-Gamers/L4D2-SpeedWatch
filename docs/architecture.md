@@ -56,12 +56,14 @@ comprobar la biblioteca: la notificación proviene del proveedor activo. Las
 llamadas a natives opcionales sí se protegen con la presencia de su biblioteca.
 
 - `OnPlayerRunCmdPre`: comprueba mapa/observación/pausa/readyup/sincronización y elegibilidad en memoria,
-  e incrementa el contador entero de comandos. Para humanos consulta directamente
+  e incrementa el contador entero de comandos. Solo para humanos monitorizados consulta directamente
   la ConVar de debug y, si está activo, la máscara de flags. Sin traza habilitada
   no obtiene userid ni consulta propiedades de entidades, formatea texto o envía chat.
 - Un timer compartido de 1 s; recorre los slots y consulta estado de los humanos.
 - Solo humanos vivos en equipos 2 o 3. También puede observar infectados fantasma
   si el motor los considera vivos. Bots y espectadores no se evalúan.
+  El timer y la API comparten la misma política individual, sin mínimo de aforo
+  ni límite artificial de ocho participantes; ver [participantes](participants.md).
 - Exceso acumulado por cliente, limitado a dos veces el buffer. Se reduce cuando
   llegan menos comandos de los permitidos. Una ventana sin exceso corta la racha.
 - Tres muestras consecutivas por encima del buffer antes de alertar.
@@ -96,7 +98,10 @@ en su archivo propio. Cada alerta también escribe una línea en la consola del 
   `map_transition`, `mission_lost`, `finale_win`, `versus_match_finished`,
   `scavenge_round_halftime`, `scavenge_round_finished` o `scavenge_match_finished`.
   Con Left4DHooks y modo Versus confirmado, el cierre de mitad usa
-  `L4D2_OnEndVersusModeRound_Post` y se ignora `round_end`.
+  `L4D2_OnEndVersusModeRound_Post`. Solo se ignora `round_end` tras haber recibido
+  ese forward en el mapa y proveedor actuales; antes se conserva como respaldo,
+  incluso al cargar tarde sin un detour activo. La confirmación se borra al
+  cambiar de mapa y al añadir o retirar Left4DHooks.
   El mapa puede seguir cargado durante ese cierre.
 - `sampleValid`: indica si la última evaluación cumplió las condiciones de
   tiempo real, avance de ticks, tickrate, timescale y detector habilitado.

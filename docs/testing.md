@@ -106,8 +106,16 @@ la matriz de runtime anterior.
 ## Left4DHooks
 
 Pendiente en SRCDS: cargar sin proveedor y confirmar
-el respaldo `round_end`; con proveedor y modo `2`, comprobar que se ignora ese
-evento y que el forward cierra la mitad. Probar un cierre bloqueado por otro
+el respaldo `round_end`; con proveedor y modo `2`, comprobar que ese evento sigue
+cerrando la observación mientras `versus_end_forward_observed=0`. Cargar SpeedWatch
+tarde, sin otros consumidores del detour y sin ejecutar `sm_l4dhooks_detours`:
+el fin de mitad debe invalidar la API y terminar cualquier episodio activo.
+Tras activar el detour y recibir su primer cierre, comprobar
+`versus_end_forward_observed=1`: en la siguiente mitad se ignora `round_end` y
+el forward cierra la observación. Si llegan ambos cierres en la primera mitad,
+debe emitirse un único terminal por episodio. Cambiar de mapa o retirar/recargar
+Left4DHooks debe devolver la confirmación a `0` y conservar el respaldo hasta
+otro forward. Probar un cierre bloqueado por otro
 plugin, modo desconocido, Coop/Survival/Scavenge, cambio de modo, carga tardía
 con escaneo de detours, alta/baja/recarga del proveedor y cambio de mapa. Repetir
 con pausa y readyup activos: la sincronización de modo no debe habilitar el

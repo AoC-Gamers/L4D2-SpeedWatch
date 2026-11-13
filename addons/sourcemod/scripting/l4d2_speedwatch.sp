@@ -51,6 +51,7 @@ enum struct PluginRuntimeState
     bool hasPause;
     bool hasReadyUp;
     bool hasLeft4DHooks;
+    bool versusEndForwardObserved; /**< Confirma entrega del detour en este mapa y proveedor. */
     bool pauseNeedsSync;
     bool readyUpNeedsSync;
     bool modeNeedsSync;
@@ -69,6 +70,7 @@ enum struct PluginRuntimeState
         this.hasPause                   = false;
         this.hasReadyUp                 = false;
         this.hasLeft4DHooks             = false;
+        this.versusEndForwardObserved   = false;
         this.pauseNeedsSync             = true;
         this.readyUpNeedsSync           = true;
         this.modeNeedsSync              = true;
@@ -85,6 +87,7 @@ void DetectLibraries()
     this.hasPause         = LibraryExists("pause");
     this.hasReadyUp       = LibraryExists("readyup");
     this.hasLeft4DHooks   = LibraryExists("left4dhooks");
+    this.versusEndForwardObserved = false;
     this.pauseNeedsSync   = true;
     this.readyUpNeedsSync = true;
     this.modeNeedsSync    = true;
@@ -112,6 +115,7 @@ void SetLibraryAvailability(const char[] name, bool available)
     else if (StrEqual(name, "left4dhooks"))
     {
         this.hasLeft4DHooks = available;
+        this.versusEndForwardObserved = false;
         this.gameMode       = GAMEMODE_UNKNOWN;
         this.modeNeedsSync  = true;
     }
@@ -268,6 +272,7 @@ public void OnMapStart()
     g_Runtime.readyUpNeedsSync = true;
     g_Runtime.modeNeedsSync    = true;
     g_Runtime.gameMode         = GAMEMODE_UNKNOWN;
+    g_Runtime.versusEndForwardObserved = false;
     ResetAll(GetEngineTime(), "map_start", SpeedWatchReason_MapStarted);
     FlushDetectionEvents();
 }
@@ -281,6 +286,7 @@ public void OnMapEnd()
     g_Runtime.mapLoaded        = false;
     g_Runtime.observationEnded = false;
     g_Runtime.gameMode         = GAMEMODE_UNKNOWN;
+    g_Runtime.versusEndForwardObserved = false;
     g_Runtime.modeNeedsSync    = true;
     ResetAll(GetEngineTime(), "map_end", SpeedWatchReason_MapEnded);
     g_Log.Flush();
@@ -372,7 +378,10 @@ public void OnObservationEnd(Event event, const char[] name, bool dontBroadcast)
         {
             bReconcileGameMode(now);
         }
-        if (g_Runtime.hasLeft4DHooks && g_Runtime.gameMode == GAMEMODE_VERSUS)
+        // La biblioteca no garantiza que su detour se activara al cargar tarde.
+        // Conserva el respaldo hasta observar el forward en este mapa/proveedor.
+        if (g_Runtime.hasLeft4DHooks && g_Runtime.gameMode == GAMEMODE_VERSUS
+            && g_Runtime.versusEndForwardObserved)
         {
             DebugLog(DEBUG_LIFECYCLE, "lifecycle", "event=round_end_ignored authority=left4dhooks game_mode=%d", g_Runtime.gameMode);
             FlushDetectionEvents();
@@ -411,8 +420,9 @@ public Action OnStatusCommand(int client, int args)
     float now = GetEngineTime();
     ReplyToCommand(client, "[SpeedWatch] map_loaded=%d observation_ended=%d",
                    g_Runtime.mapLoaded, g_Runtime.observationEnded);
-    ReplyToCommand(client, "[SpeedWatch] left4dhooks_library=%d game_mode=%d mode_sync_pending=%d",
-                   g_Runtime.hasLeft4DHooks, g_Runtime.gameMode, g_Runtime.modeNeedsSync);
+    ReplyToCommand(client, "[SpeedWatch] left4dhooks_library=%d game_mode=%d mode_sync_pending=%d versus_end_forward_observed=%d",
+                   g_Runtime.hasLeft4DHooks, g_Runtime.gameMode, g_Runtime.modeNeedsSync,
+                   g_Runtime.versusEndForwardObserved);
     ReplyToCommand(client, "[SpeedWatch] pause_library=%d paused=%d pause_sync_pending=%d",
                    g_Runtime.hasPause, g_Runtime.paused, g_Runtime.pauseNeedsSync);
     ReplyToCommand(client, "[SpeedWatch] readyup_library=%d in_ready=%d readyup_sync_pending=%d",

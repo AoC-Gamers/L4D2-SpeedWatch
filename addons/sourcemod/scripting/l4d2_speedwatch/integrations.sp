@@ -9,6 +9,7 @@
  */
 public void L4D2_OnEndVersusModeRound_Post()
 {
+    g_Runtime.versusEndForwardObserved = true;
     CloseObservation(GetEngineTime(), "versus_mode_round_end");
 }
 

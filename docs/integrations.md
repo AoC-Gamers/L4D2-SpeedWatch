@@ -22,9 +22,13 @@ extensión requerida con carga automática, aunque `left4dhooks.smx` siga siendo
 - `L4D_OnGameModeChange` acepta directamente el argumento del proveedor,
   descarta las muestras y aplica gracia sin volver a consultar el mismo valor.
   No reabre una observación cerrada ni modifica pause o readyup.
-- Con proveedor presente y modo `2`, ignora el evento genérico `round_end` y
-  cierra la mitad desde `L4D2_OnEndVersusModeRound_Post`, después del cierre del
-  motor. No consume `PostHandled`: un cierre bloqueado no acredita fin de mitad.
+- Con proveedor presente y modo `2`, ignora el evento genérico `round_end` solo
+  después de haber recibido `L4D2_OnEndVersusModeRound_Post` en el mapa actual.
+  Hasta entonces conserva `round_end` como respaldo. Recibir el forward confirma
+  que el detour entrega notificaciones; la presencia de la biblioteca no basta.
+  La confirmación se borra al cambiar de mapa y al añadir o retirar el proveedor.
+  El forward cierra la mitad después del cierre del motor. No consume
+  `PostHandled`: un cierre bloqueado no acredita fin de mitad.
   `versus_match_finished` conserva su cierre independiente de match.
 - Sin proveedor, con modo desconocido o en otro modo, conserva `round_end` como
   respaldo junto con los demás eventos existentes. Retirar la biblioteca no
@@ -32,20 +36,24 @@ extensión requerida con carga automática, aunque `left4dhooks.smx` siga siendo
 - No añade señales de salida del saferoom, hooks continuos de velocidad ni
   un nuevo gate de live. La autoridad de readyup y la exclusión de pause se conservan.
 
-`sm_speedwatch_status` muestra `left4dhooks_library`, `game_mode` y
-`mode_sync_pending`. Debug `2` registra `game_mode_sync`, `game_mode_forward` y
+`sm_speedwatch_status` muestra `left4dhooks_library`, `game_mode`,
+`mode_sync_pending` y `versus_end_forward_observed`. Debug `2` registra
+`game_mode_sync`, `game_mode_forward` y
 `round_end_ignored`; el cierre del forward queda como
 `event=observation_end trigger=versus_mode_round_end`. La flag `4` muestra el
 contexto de modo en las evaluaciones omitidas.
 
 Left4DHooks habilita sus detours al escanear los forwards de los plugins.
 Si SpeedWatch se carga tarde en un mapa activo y el detour de fin de Versus no
-estaba ya habilitado por otro consumidor, ejecutar desde consola del servidor
-`sm_l4dhooks_detours` después de cargarlo. En la versión local revisada ese
-comando vuelve a escanear y lista los detours. El siguiente inicio de mapa
+estaba ya habilitado por otro consumidor, SpeedWatch conserva `round_end` como
+respaldo. Para activar el detour sin esperar al siguiente mapa, se puede ejecutar
+desde consola del servidor `sm_l4dhooks_detours` después de cargarlo. En la versión
+local revisada ese comando vuelve a escanear y lista los detours. El siguiente inicio de mapa
 también hace el escaneo. SpeedWatch no ejecuta automáticamente comandos que
 reconfiguren al proveedor. La presencia de la biblioteca y el modo confirmado
 no prueban por sí solos que el detour se haya habilitado en esa carga tardía.
+Incluso tras un escaneo, el respaldo se conserva hasta recibir el primer forward;
+si ambos cierres llegan, el reinicio repetido no duplica terminales de episodios.
 
 ## Biblioteca opcional `pause`
 
