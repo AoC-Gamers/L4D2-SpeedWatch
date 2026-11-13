@@ -1,10 +1,14 @@
-name: SourceMod Build
+name: Build l4d2_speedwatch
+
 on:
   push:
-    branches: [main, develop]
+    branches:
+      - main
+      - develop
   pull_request:
     paths:
       - .github/workflows/sourcemod-build.yml
+      - .gitattributes
       - Makefile
       - '*Build*'
       - PackageScript
@@ -19,144 +23,493 @@ on:
       - LICENSE
       - docs/**
   workflow_dispatch:
+
 concurrency:
   group: sourcemod-build-${{ github.ref }}
   cancel-in-progress: true
+
 permissions:
   contents: read
+
 jobs:
-  smx:
+  deps-smx:
     runs-on: ubuntu-22.04
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+
     steps:
-      - uses: actions/checkout@v6
-      - run: sudo apt-get update && sudo apt-get install -y python3 make g++-multilib
-      - uses: actions/cache@v5
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 zip make
+
+      - name: Resolve dependency cache key
+        id: cache-key
+        shell: bash
+        run: |
+          echo "key=smx-deps-${{ runner.os }}-${{ hashFiles('sourcepawn-package.lock.json', 'scripts/fetch-sourcemod.py') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore dependency cache
+        id: deps-cache-restore
+        uses: actions/cache/restore@v5
         with:
           path: .deps/smx
-          key: smx-linux-${{ hashFiles('sourcepawn-package.lock.json', 'scripts/fetch-sourcemod.py') }}
-      - run: make deps-smx
-      - run: make build-smx build-api-test test-ci package-smx
-      - uses: actions/upload-artifact@v6
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Fetch plugin build dependencies
+        if: steps.deps-cache-restore.outputs.cache-hit != 'true'
+        shell: bash
+        run: make deps-smx PYTHON=python
+
+      - name: Save dependency cache
+        if: steps.deps-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
         with:
-          name: smx-package
-          path: .build/package-smx
-          if-no-files-found: error
-          retention-days: 1
-  native:
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: linux
-            os: ubuntu-22.04
-          - platform: windows
-            os: windows-2022
-    runs-on: ${{ matrix.os }}
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-      - if: matrix.platform == 'linux'
-        run: sudo apt-get update && sudo apt-get install -y g++-multilib python3-venv make
-      - name: Initialize MSVC x86 environment
-        if: matrix.platform == 'windows'
-        run: python scripts/setup-msvc.py
-      - uses: actions/cache@v5
-        with:
-          path: .deps/exts-${{ matrix.platform }}
-          key: native-${{ matrix.os }}-x86-${{ hashFiles('dependencies.lock.json', 'scripts/fetch-extension-deps.py') }}
-      - name: Resolve locked SDKs
-        run: make deps-exts-${{ matrix.platform }} PYTHON=python
-      - name: Build and test native extension
-        run: make build-exts-${{ matrix.platform }} test-exts-${{ matrix.platform }} package-exts-${{ matrix.platform }} PYTHON=python
-      - name: Sanitizers (isolated service, host architecture)
-        if: matrix.platform == 'linux'
-        run: python scripts/run-native-tests.py --platform linux --sanitize
-      - uses: actions/upload-artifact@v6
-        with:
-          name: native-package-${{ matrix.platform }}
-          path: .build/package-exts-${{ matrix.platform }}
-          if-no-files-found: error
-          retention-days: 1
-  release:
-    needs: [smx, native]
+          path: .deps/smx
+          key: ${{ steps.cache-key.outputs.key }}
+
+  build-smx:
     runs-on: ubuntu-22.04
-    strategy:
-      matrix:
-        platform: [linux, windows]
+    needs: deps-smx
+
     steps:
-      - uses: actions/checkout@v6
-      - uses: actions/download-artifact@v8
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
         with:
-          name: smx-package
-          path: .build/package-smx
-      - uses: actions/download-artifact@v8
-        with:
-          name: native-package-${{ matrix.platform }}
-          path: .build/package-exts-${{ matrix.platform }}
-      - name: Resolve existing channel names
-        id: channel
+          python-version: "3.12"
+
+      - name: Install Linux dependencies
         shell: bash
         run: |
-          case "$GITHUB_REF_NAME" in
-            main) channel=latest ;;
-            develop) channel=develop ;;
-            *) channel="pr-${GITHUB_SHA::7}" ;;
-          esac
-          echo "basename=l4d2-speedwatch-${{ matrix.platform }}-$channel" >> "$GITHUB_OUTPUT"
-      - name: Merge and validate existing binaries without SDKs
-        run: make release-${{ matrix.platform }} validate-artifact PLATFORM=${{ matrix.platform }} RELEASE_BASENAME=unused LINUX_RELEASE_BASENAME=${{ steps.channel.outputs.basename }} WINDOWS_RELEASE_BASENAME=${{ steps.channel.outputs.basename }}
-      - uses: actions/upload-artifact@v6
+          sudo apt-get update
+          sudo apt-get install -y python3 zip make g++-multilib
+
+      - name: Restore dependency cache
+        uses: actions/cache/restore@v5
         with:
-          name: release-${{ matrix.platform }}
-          path: dist/release/*.zip
+          path: .deps/smx
+          key: ${{ needs.deps-smx.outputs.cache-key }}
+          fail-on-cache-miss: true
+
+      - name: Build SMX package
+        shell: bash
+        run: make build-smx build-api-test test-ci PYTHON=python
+
+      - name: Upload SMX build tree
+        uses: actions/upload-artifact@v7
+        with:
+          name: smx-build
+          path: .build/smx
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Upload SMX compiler output
+        uses: actions/upload-artifact@v7
+        with:
+          name: smx-compile-log
+          path: .build/smx-compile.log
+          if-no-files-found: error
+          retention-days: 1
+
+  deps-exts-linux:
+    runs-on: ubuntu-22.04
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-venv make g++-multilib
+
+      - name: Resolve dependency cache key
+        id: cache-key
+        shell: bash
+        run: |
+          echo "key=exts-linux-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore dependency cache
+        id: deps-cache-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: .deps/exts-linux
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Fetch Linux extension dependencies
+        if: steps.deps-cache-restore.outputs.cache-hit != 'true'
+        shell: bash
+        run: make deps-exts-linux PYTHON=python
+
+      - name: Save dependency cache
+        if: steps.deps-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: .deps/exts-linux
+          key: ${{ steps.cache-key.outputs.key }}
+
+  build-exts-linux:
+    runs-on: ubuntu-22.04
+    needs: deps-exts-linux
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 python3-venv make g++-multilib
+
+      - name: Restore dependency cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .deps/exts-linux
+          key: ${{ needs.deps-exts-linux.outputs.cache-key }}
+          fail-on-cache-miss: true
+
+      - name: Run Linux x86 regression tests
+        shell: bash
+        run: make test-exts-linux PYTHON=python
+
+      - name: Run isolated service sanitizers (host architecture)
+        shell: bash
+        run: python scripts/run-native-tests.py --platform linux --sanitize
+
+      - name: Build Linux extension package
+        shell: bash
+        run: make build-exts-linux PYTHON=python
+
+      - name: Upload Linux extension build tree
+        uses: actions/upload-artifact@v7
+        with:
+          name: exts-build-linux
+          path: |
+            .build/exts-linux/package
+            .build/exts-linux/build-info.json
+            .build/exts-linux/compile.log
+          if-no-files-found: error
+          retention-days: 1
+
+  deps-exts-windows:
+    runs-on: windows-2022
+    outputs:
+      cache-key: ${{ steps.cache-key.outputs.key }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Resolve dependency cache key
+        id: cache-key
+        shell: bash
+        run: |
+          echo "key=exts-windows-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+
+      - name: Restore dependency cache
+        id: deps-cache-restore
+        uses: actions/cache/restore@v5
+        with:
+          path: .deps/exts-windows
+          key: ${{ steps.cache-key.outputs.key }}
+
+      - name: Fetch Windows extension dependencies
+        if: steps.deps-cache-restore.outputs.cache-hit != 'true'
+        shell: pwsh
+        run: make deps-exts-windows PYTHON=python
+
+      - name: Save dependency cache
+        if: steps.deps-cache-restore.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v5
+        with:
+          path: .deps/exts-windows
+          key: ${{ steps.cache-key.outputs.key }}
+
+  build-exts-windows:
+    runs-on: windows-2022
+    needs: deps-exts-windows
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Restore dependency cache
+        uses: actions/cache/restore@v5
+        with:
+          path: .deps/exts-windows
+          key: ${{ needs.deps-exts-windows.outputs.cache-key }}
+          fail-on-cache-miss: true
+
+      - name: Initialize MSVC x86 environment
+        shell: pwsh
+        run: python scripts/setup-msvc.py
+
+      - name: Run Windows regression tests
+        shell: pwsh
+        run: make test-exts-windows PYTHON=python
+
+      - name: Build Windows extension package
+        shell: pwsh
+        run: make build-exts-windows PYTHON=python
+
+      - name: Upload Windows extension build tree
+        uses: actions/upload-artifact@v7
+        with:
+          name: exts-build-windows
+          path: |
+            .build/exts-windows/package
+            .build/exts-windows/build-info.json
+            .build/exts-windows/compile.log
+          if-no-files-found: error
+          retention-days: 1
+
+  release-linux:
+    runs-on: ubuntu-22.04
+    needs: [build-smx, build-exts-linux]
+    outputs:
+      basename: ${{ steps.meta.outputs.basename }}
+      release-tag: ${{ steps.meta.outputs.release_tag }}
+      release-name: ${{ steps.meta.outputs.release_name }}
+      prerelease: ${{ steps.meta.outputs.prerelease }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install Linux dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3 zip make
+
+      - name: Download SMX build tree
+        uses: actions/download-artifact@v8
+        with:
+          name: smx-build
+          path: .build/smx
+
+      - name: Download SMX compiler output
+        uses: actions/download-artifact@v8
+        with:
+          name: smx-compile-log
+          path: .build
+
+      - name: Download Linux extension build tree
+        uses: actions/download-artifact@v8
+        with:
+          name: exts-build-linux
+          path: .build/exts-linux
+
+      - name: Resolve Linux artifact metadata
+        id: meta
+        shell: bash
+        run: |
+          case "${GITHUB_REF_NAME}" in
+            main)
+              echo "basename=l4d2-speedwatch-linux-latest" >> "$GITHUB_OUTPUT"
+              echo "release_tag=channel/latest" >> "$GITHUB_OUTPUT"
+              echo "release_name=Latest" >> "$GITHUB_OUTPUT"
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+              ;;
+            develop)
+              echo "basename=l4d2-speedwatch-linux-develop" >> "$GITHUB_OUTPUT"
+              echo "release_tag=channel/develop" >> "$GITHUB_OUTPUT"
+              echo "release_name=Develop" >> "$GITHUB_OUTPUT"
+              echo "prerelease=true" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "basename=l4d2-speedwatch-linux-pr-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+              echo "release_tag=" >> "$GITHUB_OUTPUT"
+              echo "release_name=" >> "$GITHUB_OUTPUT"
+              echo "prerelease=false" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Package Linux trees
+        shell: bash
+        run: make package-smx package-exts-linux PYTHON=python
+
+      - name: Build Linux release archive
+        shell: bash
+        run: make release-linux validate-artifact PLATFORM=linux PYTHON=python LINUX_RELEASE_BASENAME="${{ steps.meta.outputs.basename }}"
+
+      - name: Upload Linux release artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: ${{ steps.meta.outputs.basename }}
+          path: dist/release/${{ steps.meta.outputs.basename }}.zip
           if-no-files-found: error
           retention-days: 14
-  publish:
-    needs: release
-    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
-    runs-on: ubuntu-22.04
-    permissions:
-      contents: write
+
+  release-windows:
+    runs-on: windows-2022
+    needs: [build-smx, build-exts-windows]
+    outputs:
+      basename: ${{ steps.meta.outputs.basename }}
+
     steps:
-      - uses: actions/checkout@v6
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        id: python
+        uses: actions/setup-python@v6
         with:
-          fetch-depth: 0
-      - uses: actions/download-artifact@v8
+          python-version: "3.12"
+
+      - name: Download SMX build tree
+        uses: actions/download-artifact@v8
         with:
-          pattern: release-*
-          path: dist/release
-          merge-multiple: true
-      - name: Resolve channel tag
-        id: channel
+          name: smx-build
+          path: .build/smx
+
+      - name: Download SMX compiler output
+        uses: actions/download-artifact@v8
+        with:
+          name: smx-compile-log
+          path: .build
+
+      - name: Download Windows extension build tree
+        uses: actions/download-artifact@v8
+        with:
+          name: exts-build-windows
+          path: .build/exts-windows
+
+      - name: Resolve Windows artifact metadata
+        id: meta
         shell: bash
         run: |
-          if [ "$GITHUB_REF_NAME" = main ]; then
-            {
-              echo 'tag=channel/latest'
-              echo 'name=Latest'
-              echo 'prerelease=false'
-            } >> "$GITHUB_OUTPUT"
-          else
-            {
-              echo 'tag=channel/develop'
-              echo 'name=Develop'
-              echo 'prerelease=true'
-            } >> "$GITHUB_OUTPUT"
-          fi
-      - name: Move channel tag after all required builds
-        env:
-          CHANNEL_TAG: ${{ steps.channel.outputs.tag }}
-        run: |
-          git config user.name 'github-actions[bot]'
-          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git tag -f "$CHANNEL_TAG" "$GITHUB_SHA"
-          git push origin "refs/tags/$CHANNEL_TAG" --force
-      - uses: softprops/action-gh-release@v3
+          case "${GITHUB_REF_NAME}" in
+            main)
+              echo "basename=l4d2-speedwatch-windows-latest" >> "$GITHUB_OUTPUT"
+              ;;
+            develop)
+              echo "basename=l4d2-speedwatch-windows-develop" >> "$GITHUB_OUTPUT"
+              ;;
+            *)
+              echo "basename=l4d2-speedwatch-windows-pr-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+              ;;
+          esac
+
+      - name: Package Windows trees
+        shell: pwsh
+        run: make package-smx package-exts-windows PYTHON=python
+
+      - name: Build Windows release archive
+        shell: pwsh
+        run: make release-windows validate-artifact PLATFORM=windows PYTHON=python WINDOWS_RELEASE_BASENAME="${{ steps.meta.outputs.basename }}"
+
+      - name: Upload Windows release artifact
+        uses: actions/upload-artifact@v7
         with:
-          tag_name: ${{ steps.channel.outputs.tag }}
-          name: ${{ steps.channel.outputs.name }}
-          files: dist/release/*.zip
-          fail_on_unmatched_files: true
-          prerelease: ${{ steps.channel.outputs.prerelease == 'true' }}
+          name: ${{ steps.meta.outputs.basename }}
+          path: dist/release/${{ steps.meta.outputs.basename }}.zip
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    permissions:
+      contents: write
+    runs-on: ubuntu-22.04
+    needs: [release-linux, release-windows]
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Download Linux release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.release-linux.outputs.basename }}
+          path: dist/release
+
+      - name: Download Windows release artifact
+        uses: actions/download-artifact@v8
+        with:
+          name: ${{ needs.release-windows.outputs.basename }}
+          path: dist/release
+
+      - name: Move channel tag
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag -f "${{ needs.release-linux.outputs.release-tag }}" "$GITHUB_SHA"
+          git push origin "refs/tags/${{ needs.release-linux.outputs.release-tag }}" --force
+
+      - name: Publish channel release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          tag="${{ needs.release-linux.outputs.release-tag }}"
+          title="${{ needs.release-linux.outputs.release-name }}"
+          linux_asset="dist/release/${{ needs.release-linux.outputs.basename }}.zip"
+          windows_asset="dist/release/${{ needs.release-windows.outputs.basename }}.zip"
+
+          if gh release view "$tag" >/dev/null 2>&1; then
+            if [[ "${{ needs.release-linux.outputs.prerelease }}" == "true" ]]; then
+              gh release edit "$tag" --title "$title" --prerelease --latest=false
+            else
+              gh release edit "$tag" --title "$title" --latest=false
+            fi
+          else
+            if [[ "${{ needs.release-linux.outputs.prerelease }}" == "true" ]]; then
+              gh release create "$tag" --title "$title" --prerelease --latest=false --target "$GITHUB_SHA"
+            else
+              gh release create "$tag" --title "$title" --latest=false --target "$GITHUB_SHA"
+            fi
+          fi
+
+          gh release upload "$tag" "$linux_asset" "$windows_asset" --clobber

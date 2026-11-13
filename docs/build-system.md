@@ -102,17 +102,51 @@ del juego. El archivo de metadata no es una firma criptográfica de autenticidad
 
 ## Canales CI
 
-El job `smx` compila el SMX compartido una vez, compila consumidores API, ejecuta
-pruebas Python y prepara su staging. `native` compila/prueba cada plataforma y
-prepara su staging. `release` combina únicamente salidas existentes, sin SDK, y
-valida cada ZIP; falla si falta una etapa requerida. Las cachés son independientes
-por plataforma x86 y lock de dependencias.
+El workflow adopta el grafo de Custom-Fakelag revisado en
+`2ce01ff9010a93314cbe734154d2dbd40f25ee03`, adaptado a los paths, validaciones y
+locks de SpeedWatch. Son nueve jobs explícitos:
 
-Solo `publish`, después de ambas releases, tiene permiso de escritura. Conserva
+```mermaid
+flowchart LR
+  DS[deps-smx] --> BS[build-smx]
+  DL[deps-exts-linux] --> BL[build-exts-linux]
+  DW[deps-exts-windows] --> BW[build-exts-windows]
+  BS --> RL[release-linux]
+  BL --> RL
+  BS --> RW[release-windows]
+  BW --> RW
+  RL --> P[publish]
+  RW --> P
+```
+
+Los jobs de dependencias restauran o generan y guardan una caché, y publican su
+clave exacta. Los builds requieren esa caché (`fail-on-cache-miss`), sin volver a
+ejecutar targets de descarga. Las cachés se separan por plataforma/arquitectura y
+hash de los locks y scripts de resolución. Las cachés nativas incluyen también la
+versión resuelta de Python para no reutilizar un venv de otro intérprete. Todos
+los jobs Python usan 3.12.
+
+`build-smx` compila el plugin una sola vez, los consumidores de API y las pruebas
+Python. Entrega `.build/smx` y el log `.build/smx-compile.log` en artefactos
+separados. Cada build nativo ejecuta las pruebas y compila su extensión; Linux
+conserva además sanitizadores del servicio aislado en la arquitectura del host.
+Windows inicializa MSVC x86 mediante `setup-msvc.py`, sin la acción Node.js 20.
+
+Cada build nativo entrega solo `package/`, `build-info.json` y `compile.log`,
+con raíz común `.build/exts-<plataforma>`; no transmite objetos ni el SDK. Los jobs
+de release reconstruyen esas rutas junto al SMX/log y ejecutan los mismos targets
+`package-smx`, `package-exts-<plataforma>`, `release-<plataforma>` y
+`validate-artifact` de Make. Linux empaqueta en Ubuntu y Windows en Windows 2022,
+sin descargar SDK ni recompilar. Una única invocación de Make para los dos
+stagings propaga fallos también bajo PowerShell.
+
+Solo `publish`, después de ambas releases, tiene permiso de escritura. Descarga
+los dos ZIP por nombre exacto y usa GitHub CLI para crear/actualizar el canal y
+subir ambos assets con `--clobber`, siguiendo Custom-Fakelag. Conserva
 `channel/latest` para main y `channel/develop` como prerelease para develop.
 Los PR producen artefactos sin tags/releases ni secretos para código de forks.
-Los assets pasan a `l4d2-speedwatch-linux-latest.zip`,
+Los assets son `l4d2-speedwatch-linux-latest.zip`,
 `l4d2-speedwatch-windows-latest.zip` y sus equivalentes `-develop` o `-pr-<sha>`.
-El antiguo asset sin plataforma se sustituye por esos dos nombres; los consumidores
-deben seleccionar su plataforma. Preparar el workflow no implica haberlo ejecutado
-ni autoriza publicación remota desde esta tarea.
+El antiguo asset sin plataforma no se vuelve a generar. Los permisos son de
+lectura por defecto; el filtro de paths de PR y las comprobaciones de SpeedWatch
+se conservan. La adaptación local del workflow no acredita una ejecución remota.
