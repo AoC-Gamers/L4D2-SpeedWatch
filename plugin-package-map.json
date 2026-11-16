@@ -20,10 +20,15 @@
           ],
           "l4d2_speedwatch": {
             "files": [
-              "logging.sp",
+              "state.sp",
+              "observation.sp",
+              "native_client.sp",
+              "policy.sp",
+              "episodes.sp",
+              "notifications.sp",
+              "public_api.sp",
               "integrations.sp",
-              "detector.sp",
-              "native_core.sp"
+              "logging.sp"
             ]
           },
           "include": {

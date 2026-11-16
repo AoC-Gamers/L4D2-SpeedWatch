@@ -36,9 +36,9 @@ Este cambio no intenta inferir ni anunciar un formato a partir de ese número.
 
 ## Espectadores y ciclo de vida
 
-`OnPlayerRunCmdPre` abandona antes de consultar debug o formatear texto si el
-cliente no está monitorizado. La traza `DEBUG_COMMANDS` ya no registra comandos
-con `tracking=0`; las muestras en gracia pueden seguir teniendo `tracking=1`.
+Desde 0.10.0 no se cuentan callbacks SourcePawn. El core solo agrega intentos
+para participantes elegibles; el timer consume ventanas nativas y verifica su
+identidad, equipo, capacidades y continuidad antes de evaluar cadencia.
 
 En una evaluación válida, un humano no elegible sin datos de observación no
 necesita otro `ResetClient` cada segundo. Si todavía tiene seguimiento, muestra,
@@ -118,3 +118,7 @@ físicas: requieren validar el estado y las modificaciones efectivas del servido
 La extensión de 0.9.0 añade registros solo para participantes elegibles, con userid/serial/generación, sin mínimo de aforo. No crea historial pesado de espectadores. Su grupo de contexto físico no está disponible; el contrato temporal de infectados fantasma permanece.
 
 Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).
+
+La separación interna 0.12.0 conserva la elegibilidad individual y los límites
+de slots. Estado de conexión/cooldown no implica registro analítico: la regla
+solo admite participantes humanos vivos 2/3 y el core vuelve a validarlos.

@@ -14,6 +14,8 @@ enum struct RuntimeLog
     bool errorLogged;
     bool dirty;
     char path[PLATFORM_MAX_PATH];
+    char session[32];
+    int evaluation;
 
     /**
      * Comprueba el directorio de logs de SourceMod y lo crea si falta.
@@ -42,6 +44,7 @@ enum struct RuntimeLog
             return;
         }
         this.initTried = true;
+        Format(this.session, sizeof(this.session), "%08x-%08x-%08x", GetTime(), view_as<int>(GetEngineTime()), view_as<int>(GetMyHandle()));
         BuildPath(Path_SM, this.path, sizeof(this.path), "logs/l4d2_speedwatch.log");
         if (!this.bEnsureDirectory())
         {
@@ -81,7 +84,8 @@ enum struct RuntimeLog
         }
         char timestamp[32];
         FormatTime(timestamp, sizeof(timestamp), "%Y-%m-%d %H:%M:%S");
-        if (!this.file.WriteLine("%s [%s] %s", timestamp, category, message))
+        if (!this.file.WriteLine("%s [%s] session=%s evaluation=%08x observation_epoch=%d %s",
+            timestamp, category, this.session, this.evaluation, g_Runtime.observationGeneration, message))
         {
             this.Fail("write");
             return;
@@ -170,4 +174,51 @@ void DetectionLog(const char[] category, const char[] format, any...)
     VFormat(message, sizeof(message), format, 3);
     g_Log.Write(category, message);
     g_Log.Flush();
+}
+
+/** Same debug gate and vararg indexing as DebugLog; no formatting when disabled. */
+void DebugClientLog(int flag, const char[] category, int client, const char[] format, any...)
+{
+    if (!g_Log.bDebug(flag)) return;
+    char message[768], context[128];
+    VFormat(message, sizeof(message), format, 5);
+    FormatNativeLogContext(client, GetClientUserId(client), context, sizeof(context));
+    Format(message, sizeof(message), "%s %s", message, context);
+    g_Log.Write(category, message);
+}
+
+/** Mandatory alerts retain their existing debug-independent behaviour. */
+void DetectionClientLog(int client, const char[] category, const char[] format, any...)
+{
+    if (g_Log.file == null) return;
+    char message[768], context[128];
+    VFormat(message, sizeof(message), format, 4);
+    FormatNativeLogContext(client, GetClientUserId(client), context, sizeof(context));
+    Format(message, sizeof(message), "%s %s", message, context);
+    g_Log.Write(category, message);
+    g_Log.Flush();
+}
+
+/** Context is emitted for any selected active category, including samples-only.
+ * Uses local dependency state: never queries provider natives during setup/hooks.
+ */
+void LogDebugContext(const char[] trigger)
+{
+    if (g_Log.file == null || !g_cvDebug.BoolValue || (g_cvDebugMask.IntValue & DEBUG_DEFAULT) == 0) return;
+    char map[PLATFORM_MAX_PATH] = "unavailable";
+    if (g_Runtime.mapLoaded) GetCurrentMap(map, sizeof(map));
+    char message[768];
+    Format(message, sizeof(message), "event=debug_context trigger=%s version=%s map=%s map_loaded=%d late_load=%d debug=%d flags=%d backend=native signal=run_command_attempts core_available=%d core_pending=%d caps=%d api_expected=%d enabled=%d rate=%.3f burst=%.3f samples=%d grace=%.3f cooldown=%.3f recovery=%.3f public=%d interval=%.6f",
+        trigger, SPEEDWATCH_VERSION, map, g_Runtime.mapLoaded, g_Runtime.lateLoad, g_cvDebug.BoolValue, g_cvDebugMask.IntValue,
+        g_Runtime.coreAvailable, g_Runtime.coreNeedsSync, g_Runtime.coreCapabilities, SPEEDWATCH_CORE_API_VERSION,
+        g_cvEnabled.BoolValue, g_cvRate.FloatValue, g_cvBurst.FloatValue, g_cvSamples.IntValue, g_cvGrace.FloatValue,
+        g_cvCooldown.FloatValue, g_cvRecoveryTime.FloatValue, g_cvPublic.BoolValue, GetTickInterval());
+    g_Log.Write("general", message);
+    g_Log.Flush();
+}
+
+/** Logging settings never reset detector history or observation generations. */
+public void OnDebugSettingChanged(ConVar convar, const char[] oldValue, const char[] newValue)
+{
+    LogDebugContext("debug_setting");
 }

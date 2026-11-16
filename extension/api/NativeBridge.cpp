@@ -28,15 +28,20 @@ cell_t Sample(IPluginContext* c,const cell_t* p) {
         || c->LocalToPhysAddr(p[2],&out)!=SP_ERROR_NONE
         || c->LocalToPhysAddr(p[2]+bytes,&end)!=SP_ERROR_NONE) return c->ThrowNativeError("Invalid output address");
     speedwatch::Identity identity;
-    const auto* s=g_Core.Eligible(p[1],&identity) ? g_Core.observations.Sample(p[1],SpeedWatchNowUs()) : nullptr;
+    const bool eligible = g_Core.Eligible(p[1],&identity);
+    const auto* s=eligible ? g_Core.observations.Sample(p[1],SpeedWatchNowUs()) : nullptr;
     if (s && (s->identity.serial!=identity.serial || s->identity.userId!=identity.userId)) s=nullptr;
-    return speedwatch::EncodeSample(s,p[4],out,p[3]);
+    const bool exists = speedwatch::EncodeSample(s,p[4],out,p[3]);
+    if (!exists) out[speedwatch::CellState] = eligible ? g_Core.observations.State(p[1],SpeedWatchNowUs()) : speedwatch::NoSample;
+    if (!exists && out[speedwatch::CellState] == speedwatch::Published) out[speedwatch::CellState] = speedwatch::Interrupted;
+    return exists;
 }
-cell_t Status(IPluginContext*,const cell_t* p) {
+cell_t Status(IPluginContext* c,const cell_t* p) {
     switch(p[1]) {
         case 0:return static_cast<cell_t>(g_Core.observations.Count());
         case 1:return static_cast<cell_t>(g_Core.observations.MemoryUsed());
         case 2:return static_cast<cell_t>(sizeof(speedwatch::ObservationService)+speedwatch::kMaxSlots*sizeof(speedwatch::Participant));
+        case 3:return !g_Core.controller ? 0 : g_Core.controller==c ? 1 : 2;
         default:return -1;
     }
 }

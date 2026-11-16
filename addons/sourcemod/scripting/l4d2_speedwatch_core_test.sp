@@ -4,7 +4,7 @@
 #include <sourcemod>
 #undef REQUIRE_EXTENSIONS
 #include <l4d2_speedwatch_core>
-public Plugin myinfo = { name = "SpeedWatch Core API Test", author = "Lechuga", description = "Read native telemetry repeatedly", version = "0.9.0", url = "https://github.com/AoC-Gamers/L4D2-SpeedWatch" };
+public Plugin myinfo = { name = "SpeedWatch Core API Test", author = "Lechuga", description = "Read native telemetry repeatedly", version = "0.12.0", url = "https://github.com/AoC-Gamers/L4D2-SpeedWatch" };
 public void OnPluginStart()
 {
     RegAdminCmd("sm_speedwatch_core_api_test", OnCoreTest, ADMFLAG_ROOT);
@@ -13,7 +13,7 @@ public Action OnCoreTest(int client, int args)
 {
     if (GetFeatureStatus(FeatureType_Native, "SpeedWatchCore_GetApiVersion") != FeatureStatus_Available)
     {
-        ReplyToCommand(client, "[Core API Test] unavailable; legacy detector remains usable");
+        ReplyToCommand(client, "[Core API Test] unavailable; native detector is suspended");
         return Plugin_Handled;
     }
     if (SpeedWatchCore_GetApiVersion() != SPEEDWATCH_CORE_API_VERSION)
@@ -42,7 +42,7 @@ public Action OnCoreTest(int client, int args)
         if (exists)
         {
             ReplyToCommand(client, "slot=%d userid=%d sample=%d:%d caps=%d quality=%d attempts=%d:%d",
-                target, first[5], first[11], first[10], first[3], first[4], first[34], first[33]);
+                target, first[CoreCell_UserId], first[CoreCell_SampleHigh], first[CoreCell_SampleLow], first[CoreCell_Capabilities], first[CoreCell_Quality], first[CoreCell_AttemptsHigh], first[CoreCell_AttemptsLow]);
         }
     }
     return Plugin_Handled;

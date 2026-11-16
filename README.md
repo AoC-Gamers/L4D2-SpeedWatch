@@ -1,4 +1,4 @@
-# L4D2 SpeedWatch 0.9.0
+# L4D2 SpeedWatch 0.12.0
 
 [![SourceMod Build](https://github.com/AoC-Gamers/L4D2-SpeedWatch/actions/workflows/sourcemod-build.yml/badge.svg)](https://github.com/AoC-Gamers/L4D2-SpeedWatch/actions/workflows/sourcemod-build.yml)
 
@@ -13,9 +13,14 @@ cadencia normal observada; no acredita que un cheat se haya desactivado.
 Repositorio: [AoC-Gamers/L4D2-SpeedWatch](https://github.com/AoC-Gamers/L4D2-SpeedWatch).
 Los paquetes compilados se publican en [Releases](https://github.com/AoC-Gamers/L4D2-SpeedWatch/releases).
 
-La versión 0.9.0 añade un [núcleo nativo opcional de observación](docs/native-core/index.md)
-para bloques de usercmds e intentos de PlayerRunCommand. Sus métricas son diagnóstico
-experimental; las alertas siguen usando el detector heredado y sus mismos umbrales.
+La versión 0.10.0 utiliza exclusivamente las ventanas del
+[núcleo nativo](docs/native-core/index.md) para detectar cadencia excesiva de
+intentos de `PlayerRunCommand`. No cuenta callbacks SourcePawn ni ofrece fallback
+al detector anterior. Sin core compatible o sin muestras válidas, interrumpe la
+observación. Estos intentos no acreditan ejecución original ni velocidad física.
+
+La API 0.11.0 añade [marcadores de persistencia](docs/integrations/speedwatch-persistence.md)
+cada 30 segundos consecutivos de exceso confirmado, dentro del mismo episodio.
 
 ## Funcionalidades
 
@@ -25,7 +30,7 @@ experimental; las alertas siguen usando el detector heredado y sus mismos umbral
 - API con client, AccountID, userid y consulta de la última muestra válida.
 - Episodios Active, Recovered e Interrupted para coordinar grabaciones externas.
 - Integraciones opcionales con pause, readyup y Left4DHooks.
-- Código SourcePawn modular compilado en un único SMX y extensión C++ opcional por plataforma.
+- Código SourcePawn modular compilado en un único SMX y extensión C++ por plataforma, obligatoria al cargar.
 
 ## Documentación
 
@@ -51,3 +56,5 @@ pendiente de compilación en host Windows. SRCDS y rendimiento siguen pendientes
 consultar [validación nativa](docs/native-core/validation.md).
 
 Licencia: GPL-3.0-or-later; consultar `LICENSE`.
+
+- [Migración nativa y rollback](docs/migration-native.md).

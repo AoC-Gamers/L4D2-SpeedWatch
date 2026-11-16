@@ -88,7 +88,7 @@ correspondiente al proveedor; los cambios de firmas o estructura requieren
 revisar y recompilar los consumidores. Los consumidores anteriores que consultan
 la versión de API deben eliminar esa llamada y recompilarse.
 
-La API no añade consultas de identidad ni forwards a `OnPlayerRunCmdPre`.
+Desde 0.10.0 no existe conteo `OnPlayerRunCmdPre` en el proveedor.
 La copia para consumidores se actualiza en el timer existente. El forward original
 se invoca por alerta; el nuevo forward de estado, únicamente por transición del episodio. Un consumidor lento sí puede
 añadir coste al ejecutarse su callback en el hilo del servidor.
@@ -119,3 +119,30 @@ Los escenarios de prueba de API y callbacks están en [validación](testing.md).
 SpeedWatchSample, SpeedWatch_GetClientSample y los dos forwards existentes conservan firmas y significado. La API experimental SpeedWatchCore_ se declara en l4d2_speedwatch_core.inc, con versión y longitud explícitas. El consumidor nativo es de solo consulta y queda fuera del paquete.
 
 Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).
+
+## Migración del detector en 0.10.0
+
+Se conservan layout, firmas, unidades y estados de la API pública. La cadencia
+procede ahora de intentos observados por el core en ventanas monotónicas validadas,
+no de callbacks SourcePawn. No se afirma ejecución original ni velocidad física.
+Sin core compatible o con evidencia degradada, `GetClientSample` devuelve false
+y un episodio activo termina con Interrupted, nunca Recovered. Los consumidores
+no necesitan cambiar sus llamadas; deben seguir tratando las alertas como sospechas.
+
+## API aditiva 0.11.0: persistencia
+
+El forward opcional `SpeedWatch_OnDetectionPersistence` informa client, AccountID,
+userid, ordinal y segundos consecutivos de exceso confirmado (30–32). No abre
+otro episodio ni repite Active. Las consultas/forwards previos conservan sus firmas.
+Para recibirlo, recompilar consumidores con el include nuevo; proveedores anteriores
+no lo emiten. No hay replay ni recuperación de intervalos anteriores a la carga.
+Contrato y límites: [marcadores de persistencia](integrations/speedwatch-persistence.md).
+
+## Migración interna 0.12.0
+
+No se cambian `SpeedWatchSample`, `SpeedWatch_GetClientSample` ni los forwards de
+alerta, estado o persistencia. BanSystem Demo conserva su include idéntico y su
+incidente/tick propios. La API **nativa** sube a v2: recompilar consumidores de
+`l4d2_speedwatch_core.inc`, con nombres `CoreCell_*`, instancia y estado explícitos.
+El proveedor exige la extensión al cargar. Leer no evalúa ni consume una ventana.
+Ver [migración y rollback](migration-native.md).

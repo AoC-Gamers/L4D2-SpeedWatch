@@ -1,5 +1,10 @@
 # Validación del núcleo nativo
 
+La separación 0.12.0 incorpora API nativa v2, identidad de instancia, estado de
+obsolescencia y módulos nuevos. Los checkpoints de versiones anteriores más
+abajo son históricos: no validan automáticamente este conjunto ni su runtime.
+La aceptación actual pendiente está en [migración](../migration-native.md).
+
 ## Capas de evidencia
 
 1. Pruebas unitarias compilan `ObservationService.cpp` y `SampleCodec.cpp` reales:
@@ -49,9 +54,10 @@ No se ha cargado esta extensión en un servidor en esta tarea. Antes de aceptarl
 
 - Instalar en L4D2 x86 de pruebas y registrar versión/hash del server y engine,
   SourceMod, Metamod y gamedata. Confirmar capacidades reales por participante.
-- Sin extensión: conectar humanos, consultar API antigua y generar evidencia
-  controlada legítima; confirmar mismos umbrales/cooldowns/episodios y sin errores.
-- Con extensión: comparar muestras identificadas con el callback heredado. Repetir
+- Sin extensión: confirmar rechazo de carga por dependencia requerida. Con API
+  incompatible, confirmar fallo explícito de inicio. Con capacidades insuficientes,
+  confirmar detector_ready=0 y registro normal, sin fallback ni falsa recuperación.
+- Con extensión: confirmar backend nativo, capacidades, calidad e identidad. Repetir
   1v1/2v2/3v3/4v4, equipos desiguales, práctica con uno, cero, >8 y slots altos.
 - Bots, espectadores y admins espectadores: sin registros analíticos para los dos
   primeros; conservar recepción de avisos y permisos del administrador.
@@ -60,9 +66,9 @@ No se ha cargado esta extensión en un servidor en esta tarea. Antes de aceptarl
   Las muestras deben pertenecer al userid/serial correcto y el grupo físico ausente.
 - Pausa/readyup/countdown/live, cambio de mapa, reinicio y ambas mitades Versus.
   Preservar `versusEndForwardObserved`, su respaldo y las interrupciones únicas.
-- Descargar/recargar core, cambiar compare, quitar offset RunCommand en instalación
+- Descargar/recargar core, activar/desactivar detector, quitar offset RunCommand en instalación
   aislada y probar carga parcial fallida. API incompatible y natives no presentes:
-  detector heredado utilizable, sin recuperación ficticia ni muestras mezcladas.
+  detección suspendida sin fallback, Interrupted único, sin recuperación ficticia ni muestras mezcladas.
 - Con varios consumidores, leer repetidamente, omitir varias ventanas, probar
   versiones/longitudes/índices inválidos desde harness aislado. Verificar errores
   nativos y canarios; no incluir el harness en el paquete de producción.
@@ -77,10 +83,10 @@ No se ha cargado esta extensión en un servidor en esta tarea. Antes de aceptarl
   prometer ahorro con resultados sintéticos.
 
 La carga tardía no reconstruye el pasado: empieza con epoch nueva, registros
-nuevos y gracia. Las muestras nativas son diagnóstico experimental; ningún ensayo
+nuevos y gracia. La cadencia nativa requiere calibración con tráfico legítimo; ningún ensayo
 requiere un cheat, inyector o alterar el tráfico del juego desde el core.
 
-## Evidencia local de esta implementación
+## Evidencia histórica de la implementación 0.9.0
 
 - Base `9ce41ca`; rama `codex/native-observation-core`; sin publicación o despliegue.
 - SourcePawn 1.12.0.7255: producción y tres consumidores de API, `-E`, sin warnings.
@@ -102,3 +108,62 @@ Un wrapper local de g++ usa `-m32`, `-B`, rutas de include/library extraídas y
 multilib instalado en su runner. Los logs de compilación registran su ruta.
 Windows/MSVC, ABI contra el binario externo del juego, SRCDS y rendimiento no
 se han ejecutado ni certificado aquí. El workflow remoto está preparado, no ejecutado.
+
+## Migración del detector 0.10.0
+
+Se retira el callback SourcePawn y se conserva solo la señal de intentos del core.
+Las pruebas aisladas ejercitan las funciones de producción de admisión de ventanas,
+acumulación de deuda, racha, interrupción, recuperación y elegibilidad, con dobles
+C++ y adaptación mecánica de sintaxis SP. Cubren identidad/equipo/epoch, capacidades,
+primera ventana, duplicados, huecos, generaciones, calidad, metadatos de pérdida, pausa, NaN,
+infinitos y contadores no representables. No ejecutan la VM ni certifican gameplay.
+
+La matriz SRCDS anterior se aplica a 0.10.0 y sigue pendiente, incluida la
+coexistencia con filtros SUPERCEDE y la calibración de umbrales bajo carga/red real.
+La comprobación SSH de 0.9.0 acredita carga de esa versión, no de este candidato.
+
+### Evidencia local del candidato 0.10.0
+
+- `make deps-smx deps-exts-linux` y `make build-smx build-api-test`: correctos;
+  SourcePawn 1.12.0.7255, `-E`, producción y tres consumidores sin warnings.
+- El host carece de cabeceras multilib. Build y pruebas x86 completados en el
+  contenedor local `custom-fakelag-validation:local`, sin red ni gameservers:
+  `make build-exts-linux test-exts-linux test-ci`. Dieciocho pruebas Python,
+  servicio/codec x86 y cadena SourceHook con objeto sintético correctos.
+- `python3 scripts/run-native-tests.py --platform linux --sanitize`: ASan/UBSan
+  del servicio/codec en host x64, correcto. No prueba la VM ni el ABI del juego.
+- `make package-smx package-exts-linux release-linux validate-artifact`: correcto
+  en el contenedor; ZIP combinado local en `dist/release/l4d2-speedwatch-local-linux.zip`.
+- `actionlint .github/workflows/sourcemod-build.yml` y `git diff --check`: correctos.
+- Sin compilación Windows, publicación, despliegue ni aceptación SRCDS de 0.10.0.
+
+### Mejoras de debug del mismo candidato
+
+Se amplía la validación aislada a veinte pruebas Python. Las de ventanas comprueban
+los motivos simultáneos y que la admisión conserva sus reglas. Las de logging
+ejercitan funciones de producción con dobles C++: contexto con máscara samples-only,
+mapa todavía ausente, mapas largos, debug/máscara desactivados, correlación high:low,
+alertas independientes de debug y rechazo de contexto de otra conexión. La adaptación
+de varargs no ejecuta VFormat de SourcePawn; sus índices se comprueban por separado
+y la compilación real de producción/consumidores sigue siendo obligatoria.
+
+La comprobación efectiva del archivo y los cambios de debug en SourceMod siguen
+pendientes de una prueba runtime autorizada. No se cambian rotación ni reapertura.
+
+### Regresión del descarte por dropped_packets
+
+Se elimina el veto automático por drops. La prueba adicional ejecuta las funciones
+SourcePawn de producción adaptadas a C++ y comprueba:
+
+- Cadencia normal con drops: ventanas admitidas, sin nueva gracia ni sospecha.
+- Cinco ventanas inactivas y una ráfaga de 444 intentos: no abre episodio.
+- Dos ráfagas consecutivas de 444 intentos, luego cadencia normal: no abre episodio.
+- Ráfagas aisladas repetidas: cortan la racha aunque quede deuda acotada.
+- Secuencia observada de 337, 133, 227, 444, 416, 267 y 335 intentos en ventanas
+  de aproximadamente un segundo, con sus drops: abre un único episodio Active
+  en la tercera muestra con los defaults, sin reiniciar gracia por drops.
+
+Veintiuna pruebas Python correctas; producción y tres consumidores de API compilan
+con SourcePawn 1.12.0.7255 y warnings tratados como errores. Es regresión aislada,
+no replay de tráfico dentro del motor: quedan pendientes el retest de este fix en
+comp-dev y la calibración con tráfico legítimo. No se despliega desde esta tarea.

@@ -9,9 +9,10 @@
 #include <sourcemod>
 #include <sdktools>
 #include <l4d2_speedwatch>
-#undef REQUIRE_EXTENSIONS
+#if !defined REQUIRE_EXTENSIONS
+    #define REQUIRE_EXTENSIONS
+#endif
 #include <l4d2_speedwatch_core>
-#define REQUIRE_EXTENSIONS
 
 // Las APIs de los tres proveedores son opcionales al cargar.
 #undef REQUIRE_PLUGIN
@@ -20,23 +21,25 @@
 #include <left4dhooks>
 #define REQUIRE_PLUGIN
 
+#define SPEEDWATCH_VERSION "0.12.0"
+
 public Plugin myinfo =
 {
     name        = "L4D2 SpeedWatch",
     author      = "Lechuga",
     description = "Reports sustained excess movement commands; never blocks or punishes",
-    version     = "0.9.0",
+    version     = SPEEDWATCH_VERSION,
     url         = "https://github.com/AoC-Gamers/L4D2-SpeedWatch"
 };
 
-// Máscara de diagnóstico: la traza por comando se excluye del valor por defecto.
+// Máscara de diagnóstico; el antiguo bit por comando queda reservado.
 #define DEBUG_GENERAL    (1 << 0)
 #define DEBUG_LIFECYCLE  (1 << 1)
 #define DEBUG_SAMPLES    (1 << 2)
 #define DEBUG_DETECTIONS (1 << 3)
-#define DEBUG_COMMANDS   (1 << 4)
+#define DEBUG_RESERVED   (1 << 4)
 #define DEBUG_DEFAULT    (DEBUG_GENERAL | DEBUG_LIFECYCLE | DEBUG_SAMPLES | DEBUG_DETECTIONS)
-#define DEBUG_ALL        (DEBUG_DEFAULT | DEBUG_COMMANDS)
+#define DEBUG_ALL        (DEBUG_DEFAULT | DEBUG_RESERVED)
 
 /**
  * Contexto de carga, mapa, observación y bibliotecas opcionales.
@@ -52,6 +55,7 @@ enum struct PluginRuntimeState
     int  observationGeneration; /**< Invalida una evaluación tras callbacks reentrantes. */
     bool dispatchingDetectionEvents;
     bool coreAvailable;
+    bool coreControllerAvailable;
     bool coreNeedsSync;
     int coreCapabilities;
     bool hasPause;
@@ -74,6 +78,7 @@ enum struct PluginRuntimeState
         this.observationGeneration      = 0;
         this.dispatchingDetectionEvents = false;
         this.coreAvailable              = false;
+        this.coreControllerAvailable    = false;
         this.coreNeedsSync              = true;
         this.coreCapabilities           = 0;
         this.hasPause                   = false;
@@ -118,6 +123,7 @@ void SetLibraryAvailability(const char[] name, bool available)
         if (!available)
         {
             this.coreAvailable = false;
+            this.coreControllerAvailable = false;
             this.coreCapabilities = 0;
         }
     }
@@ -158,9 +164,14 @@ ConVar             g_cvTimescale;
 
 // Módulos privados del mismo plugin; las ConVars y el runtime se declaran arriba.
 #include "l4d2_speedwatch/logging.sp"
-#include "l4d2_speedwatch/detector.sp"
+#include "l4d2_speedwatch/state.sp"
+#include "l4d2_speedwatch/observation.sp"
+#include "l4d2_speedwatch/policy.sp"
+#include "l4d2_speedwatch/episodes.sp"
+#include "l4d2_speedwatch/notifications.sp"
+#include "l4d2_speedwatch/public_api.sp"
 #include "l4d2_speedwatch/integrations.sp"
-#include "l4d2_speedwatch/native_core.sp"
+#include "l4d2_speedwatch/native_client.sp"
 
 /**
  * Valida L4D2, guarda la carga tardía y registra la biblioteca y los natives.
@@ -184,6 +195,8 @@ public APLRes AskPluginLoad2(Handle myself, bool late, char[] error, int errMax)
                                                  Param_Cell, Param_Cell, Param_Cell, Param_Float, Param_Float, Param_Float, Param_Cell);
     g_hDetectionStateForward = new GlobalForward("SpeedWatch_OnDetectionStateChanged", ET_Ignore,
                                                  Param_Cell, Param_Cell, Param_Cell, Param_Cell, Param_Cell);
+    g_hDetectionPersistenceForward = new GlobalForward("SpeedWatch_OnDetectionPersistence", ET_Ignore,
+        Param_Cell, Param_Cell, Param_Cell, Param_Cell, Param_Float);
     g_DetectionEvents        = new ArrayList(sizeof(DetectionStateEvent));
     return APLRes_Success;
 }
@@ -222,6 +235,7 @@ public void OnConfigsExecuted()
     {
         bReconcileObservation(GetEngineTime());
         FlushDetectionEvents();
+        LogDebugContext("configs_executed");
     }
 }
 
@@ -231,8 +245,12 @@ public void OnConfigsExecuted()
  */
 public void OnPluginStart()
 {
+    if (SpeedWatchCore_GetApiVersion() != SPEEDWATCH_CORE_API_VERSION)
+    {
+        SetFailState("SpeedWatch requires native core API %d; install matching SMX and extension", SPEEDWATCH_CORE_API_VERSION);
+        return;
+    }
     LoadTranslations("l4d2_speedwatch.phrases");
-    g_cvCoreCompare = CreateConVar("sm_speedwatch_core_compare", "1", "Collect experimental native diagnostics; detection remains legacy", FCVAR_NONE, true, 0.0, true, 1.0);
     g_cvEnabled      = CreateConVar("sm_speedwatch_enable", "1", "Enable observation", FCVAR_NONE, true, 0.0, true, 1.0);
     g_cvRate         = CreateConVar("sm_speedwatch_rate", "1.10", "Allowed commands / nominal server ticks", FCVAR_NONE, true, 1.02, true, 3.0);
     g_cvBurst        = CreateConVar("sm_speedwatch_burst", "2.0", "Excess-command buffer in nominal tick seconds", FCVAR_NONE, true, 0.5, true, 10.0);
@@ -243,12 +261,14 @@ public void OnPluginStart()
     g_cvPublic       = CreateConVar("sm_speedwatch_public", "0", "0: admin chat; 1: everyone's chat", FCVAR_NONE, true, 0.0, true, 1.0);
     g_cvTimescale    = FindConVar("host_timescale");
     g_cvDebug        = CreateConVar("sm_speedwatch_debug", "0", "Enable diagnostic file debug; detection alerts are always logged", FCVAR_NONE, true, 0.0, true, 1.0);
-    g_cvDebugMask    = CreateConVar("sm_speedwatch_debug_flags", "15", "Debug flags: 1 general, 2 lifecycle, 4 samples, 8 detections, 16 commands", FCVAR_NONE, true, 0.0, true, float(DEBUG_ALL));
+    g_cvDebugMask    = CreateConVar("sm_speedwatch_debug_flags", "15", "Debug flags: 1 general, 2 lifecycle, 4 samples, 8 detections, 16 reserved", FCVAR_NONE, true, 0.0, true, float(DEBUG_ALL));
     g_Log.Init();
-    DebugLog(DEBUG_GENERAL, "general", "event=plugin_start version=0.9.0 debug=%d flags=%d",
+    g_cvDebug.AddChangeHook(OnDebugSettingChanged);
+    g_cvDebugMask.AddChangeHook(OnDebugSettingChanged);
+    LogDebugContext("plugin_start");
+    DebugLog(DEBUG_GENERAL, "general", "event=plugin_start version=0.12.0 debug=%d flags=%d",
              g_cvDebug.BoolValue, g_cvDebugMask.IntValue);
 
-    g_cvCoreCompare.AddChangeHook(OnDetectorSettingChanged);
     g_cvEnabled.AddChangeHook(OnDetectorSettingChanged);
     g_cvRate.AddChangeHook(OnDetectorSettingChanged);
     g_cvBurst.AddChangeHook(OnDetectorSettingChanged);
@@ -297,6 +317,7 @@ public void OnMapStart()
     g_Runtime.versusEndForwardObserved = false;
     ResetAll(GetEngineTime(), "map_start", SpeedWatchReason_MapStarted);
     FlushDetectionEvents();
+    LogDebugContext("map_start");
 }
 
 /**
@@ -466,7 +487,7 @@ public Action OnStatusCommand(int client, int args)
                 grace = 0.0;
             }
             ReplyToCommand(client, "#%d %N: tracking=%d cmds/s=%.1f ratio=%.2f excess=%.1f samples=%d grace=%.1fs active=%d recovery=%.1fs",
-                           GetClientUserId(target), target, g_bMonitor[target], g_LastRate[target], g_LastRatio[target],
+                           GetClientUserId(target), target, g_bMonitor[target], g_ClientSamples[target].commandsPerSecond, g_ClientSamples[target].ratio,
                            g_Debt[target], g_Strikes[target], grace, g_Detections[target].active, g_Detections[target].recoveryTime);
         }
     }

@@ -1,7 +1,20 @@
 #include "ObservationService.h"
 #include <cmath>
+#include <chrono>
+#include <atomic>
 #include <limits>
 namespace speedwatch {
+ObservationService::ObservationService() {
+    // Monotonic process time separates extension reloads; the counter also
+    // separates service objects constructed within the same clock microsecond.
+    static std::atomic<std::uint64_t> previous{0};
+    const auto now = static_cast<std::uint64_t>(std::chrono::duration_cast<std::chrono::microseconds>(
+        std::chrono::steady_clock::now().time_since_epoch()).count());
+    auto prior = previous.load();
+    do { instanceId_ = now > prior ? now : prior + 1; }
+    while (!previous.compare_exchange_weak(prior, instanceId_));
+}
+
 void SaturatingAdd(std::uint64_t& target, std::uint64_t amount, std::uint32_t& quality) {
     if (amount > std::numeric_limits<std::uint64_t>::max() - target) {
         target = std::numeric_limits<std::uint64_t>::max(); quality |= Overflow;
@@ -33,12 +46,12 @@ void ObservationService::Reset() {
     for (auto& p : records_) if (p) { p->counters = {}; p->hasSample = false; p->quality = 0; }
 }
 bool ObservationService::Active(int slot, std::uint64_t now) const {
-    return enabled_ && Find(slot) && now >= startUs_ && now - startUs_ <= 2500000;
+    return enabled_ && Find(slot) && now >= startUs_ && now - startUs_ <= kControllerLeaseUs;
 }
 bool ObservationService::Pulse(bool enabled, std::uint32_t epoch, std::uint64_t now, int tick, float interval) {
-    if (!std::isfinite(interval) || interval <= 0 || !enabled) { Reset(); epoch_ = epoch; return false; }
+    if (!std::isfinite(interval) || interval < kIntervalMin || interval > kIntervalMax || !enabled) { Reset(); epoch_ = epoch; return false; }
     const bool continuing = enabled_ && epoch == epoch_;
-    const bool clocks = now >= startUs_ && now - startUs_ >= 500000 && now - startUs_ <= 2000000;
+    const bool clocks = now >= startUs_ && now - startUs_ >= kWindowMinUs && now - startUs_ <= kWindowMaxUs;
     const std::int64_t ticks = static_cast<std::int64_t>(tick) - startTick_;
     const double expected = now >= startUs_ ? (now - startUs_) / 1.e6 / interval : 0;
     const bool stable = std::fabs(interval - interval_) < 0.000001f;
@@ -48,7 +61,7 @@ bool ObservationService::Pulse(bool enabled, std::uint32_t epoch, std::uint64_t 
     for (auto& p : records_) if (p) {
         if (continuing) {
             Snapshot s;
-            s.identity = p->identity; s.sampleId = sampleId_; s.epoch = epoch_; s.generation = p->generation;
+            s.instanceId = instanceId_; s.identity = p->identity; s.sampleId = sampleId_; s.epoch = epoch_; s.generation = p->generation;
             s.startUs = startUs_; s.endUs = now; s.startTick = startTick_; s.endTick = tick; s.interval = interval_;
             s.capabilities = p->capabilities; s.quality = p->quality; s.team = p->team; s.counters = p->counters;
             if (!clocks || !stable) s.quality |= ClockDiscontinuity;
@@ -82,9 +95,16 @@ void ObservationService::RunAttempt(int slot, std::uint64_t now, int tick) {
     SaturatingAdd(p.counters.runCommandAttempts, 1, p.quality);
     SaturatingAdd(invocation_, 1, p.quality); p.counters.lastInvocation = invocation_;
 }
+SampleState ObservationService::State(int slot, std::uint64_t now) const {
+    const auto* p = Find(slot);
+    if (!enabled_ || !p || !p->hasSample) return NoSample;
+    if (now < p->sample.endUs) return Interrupted;
+    if (now - p->sample.endUs > kSampleRetentionUs) return Stale;
+    return p->sample.quality ? Interrupted : Published;
+}
 const Snapshot* ObservationService::Sample(int slot, std::uint64_t now) const {
     const auto* p = Find(slot);
-    if (!enabled_ || !p || !p->hasSample || now < p->sample.endUs || now - p->sample.endUs > 2000000) return nullptr;
+    if (!enabled_ || !p || !p->hasSample || now < p->sample.endUs || now - p->sample.endUs > kSampleRetentionUs) return nullptr;
     return &p->sample;
 }
 } // namespace speedwatch

@@ -168,3 +168,16 @@ public void SpeedWatch_OnDetectionStateChanged(int client, int accountId, int us
     PrintToServer("[SpeedWatch API Test] state client=%d accountid=%d userid=%d state=%d reason=%d observed_start=%d same_connection=%d",
         client, accountId, userId, state, reason, observedStart, GetClientOfUserId(userId) == client);
 }
+
+/** Optional additive callback: observes markers without changing the detector. */
+public void SpeedWatch_OnDetectionPersistence(int client, int accountId, int userId, int marker, float confirmedSeconds)
+{
+    if (client < 1 || client > MaxClients || userId <= 0 || marker <= 0
+        || !(confirmedSeconds >= 30.0 && confirmedSeconds <= 32.0))
+    {
+        LogError("[SpeedWatch API Test] Invalid persistence marker");
+        return;
+    }
+    PrintToServer("[SpeedWatch API Test] persistence client=%d accountid=%d userid=%d marker=%d confirmed_seconds=%.3f",
+        client, accountId, userId, marker, confirmedSeconds);
+}

@@ -2,10 +2,10 @@
 
 [Índice general](../index.md) · [Evidencia y ABI](evidence.md) · [Validación](validation.md)
 
-La extensión opcional `l4d2_speedwatch_core` observa metadatos de bloques de
-usercmds y llamadas a `PlayerRunCommand`. El plugin sigue calculando la sospecha
-con su contador SourcePawn y conserva la API pública anterior. Esta implementación
-no sustituye la señal calibrada ni mezcla contadores de etapas distintas.
+Desde 0.10.0, `l4d2_speedwatch_core` es la única fuente de evidencia del detector.
+La extensión agrega bloques de usercmds e intentos de `PlayerRunCommand`;
+SourcePawn aplica umbrales, gracia, episodios y alertas a sus ventanas validadas.
+La API pública conserva firmas y unidades. No existe fallback a conteo SourcePawn.
 
 ## Flujo y responsabilidades
 
@@ -14,8 +14,8 @@ IServerGameClients::ProcessUsercmds (pre, MRES_IGNORED)
     -> metadatos de bloque -> agregado por participante
 PlayerRunCommand (pre, MRES_IGNORED)
     -> intento observado -> agregado independiente
-Timer SourcePawn validado -> Pulse -> snapshot inmutable -> API de diagnóstico
-OnPlayerRunCmdPre -> detector heredado -> episodios -> logs/chat/API existente
+Timer SourcePawn (exclusiones de partida) -> Pulse -> snapshot inmutable
+    -> validar continuidad/calidad -> detector de cadencia -> episodios/logs/chat/API
 ```
 
 La recepción no acredita almacenamiento ni simulación. `numcmds` y `totalcmds`
@@ -51,7 +51,7 @@ volver, el hueco se publica con mala calidad. Al descargar el controlador se
 libera su propiedad y sus registros. Solo un plugin puede controlar Pulse y
 SetParticipant; otros consumidores solo consultan.
 
-## API experimental v1
+## API nativa v2
 
 El contrato está en `include/l4d2_speedwatch_core.inc`. Las seis funciones son:
 `GetApiVersion`, `GetCapabilities`, `Pulse`, `SetParticipant`, `GetSample` y
@@ -62,7 +62,7 @@ debe declarar la capacidad real de su array, como en otros natives de SourceMod.
 La VM comprueba direcciones, pero no permite reconstruir el tamaño de un array
 arbitrario si el llamador miente sobre su longitud.
 
-`GetSample=false` escribe una cabecera versión/longitud y ceros en el resto. Una
+`GetSample=false` escribe versión/longitud y estado en la celda 47; el resto queda a cero. Una
 muestra ausente, obsoleta (>2 segundos), de otra conexión o no elegible no se
 convierte en una muestra válida de cero actividad. Se serializa campo por campo;
 no hay memcpy de estructuras del motor ni punteros en la API.
@@ -79,7 +79,8 @@ no hay memcpy de estructuras del motor ni punteros en la API.
 | 33/34, 35/36, 37/38 | runCommandAttempts, metadatos descartados, último ID de invocación |
 | 39/40, 41 | instante y tick de último bloque |
 | 42/43, 44 | instante y tick del último intento |
-| 45–47 | Reservadas a cero |
+| 45/46 | Identidad uint64 de la instancia del core |
+| 47 | Estado: 0 ausente, 1 publicado, 2 obsoleto, 3 interrumpido/parcial |
 
 Cada uint64 se representa como dos patrones de 32 bits, low seguido de high; no
 se debe convertir una sola celda firmada a contador de 64 bits. Capacidades: `1`
@@ -109,24 +110,45 @@ los hooks también descartan un participante que dejó de ser elegible. Clase,
 suelo/aire, agua, escalera, incapacidad, velocidades, desplazamientos y movimientos
 forzados permanecen **no disponibles**: no hay bit de contexto físico ni umbrales
 físicos. Requieren una capa de resolución y validación runtime adicional. Eso no
-suspende el análisis temporal heredado.
+suspende por sí sola el análisis de cadencia de intentos.
 
 ## Configuración, degradación y coste
 
-`sm_speedwatch_core_compare 1` recoge diagnóstico nativo experimental; `0` lo
-suspende y aplica el reset conservador de configuración. Las alertas siempre
-usan `detection_backend=legacy`. No existe selector hacia una señal no calibrada.
-`sm_speedwatch_status` muestra disponibilidad, capacidades, participantes, memoria
-reservada por el servicio y muestras recibidas con su duración, calidad y edad
-desde la primera recepción por SourcePawn (no edad absoluta entre relojes). El
-comando no cambia de backend. Debug `samples` registra `native_comparison` una vez
-por sample_id, junto a la tasa heredada; sus ventanas se identifican por separado
-y no se comparan como si fueran temporalmente idénticas.
+Las alertas usan `detection_backend=native signal=run_command_attempts`.
+`sm_speedwatch_core_compare` se retiró: quitarla de cfg existentes. El único control
+de activación es `sm_speedwatch_enable`. Desde 0.12.0 la extensión es requerida por el loader. La ausencia
+impide cargar el SMX y una API incompatible falla explícitamente al iniciar.
+Si faltan capacidades, `detector_ready=0`: se interrumpen episodios y no se
+publican muestras ni alertas.
+No se vuelve al backend anterior. El bit global anuncia soporte; cada ventana debe
+confirmar también las tres capacidades (bloques, intentos, equipo).
 
-La ausencia de extensión, natives incompatibles o pérdida de biblioteca mantiene
-el backend heredado. No hay dependencia circular: la extensión no consume la API
-del plugin. Si falta el offset `PlayerRunCmd` de SDKTools se conservan los bloques,
-con bit de intentos ausente. La carga parcial desmonta hooks y listeners.
+Se evalúa una ventana una sola vez en el timer. Debe pertenecer al userid/serial,
+equipo y epoch actuales, tener duración de 0.5–2 s, contador representable y calidad
+cero. Se enlaza el inicio con el fin anterior y se verifica la generación del
+participante y un ID de muestra distinto. Primera ventana, huecos, duplicados,
+cambios de identidad/capacidades, metadatos inválidos o bloques ignorados/pausados
+invalidan el historial y aplican gracia. Los descartes interrumpen
+un episodio; nunca lo recuperan. La primera ventana solo prepara el cursor y no
+recrea continuamente el participante. La siguiente ventana limpia puede continuar.
+
+`dropped_packets` distinto de cero permanece como contexto diagnóstico; no rechaza
+la ventana, no borra deuda/racha y no reinicia gracia por sí solo. No acredita una
+cantidad equivalente de paquetes UDP perdidos ni explica su causa. Las ráfagas
+legítimas se amortiguan mediante margen, buffer acotado y racha consecutiva: con
+los defaults, una o dos ventanas elevadas seguidas de cadencia normal no abren un
+episodio. El exceso sostenido sí puede alcanzar el umbral aunque registre drops.
+Esto no garantiza ausencia de falsos positivos con cualquier patrón de red;
+la calibración en partidas sigue siendo necesaria.
+
+La cadencia usa exclusivamente `runCommandAttempts / duración nativa`; presupuesto
+y buffer usan el intervalo nominal de esa ventana. No se suman `numcmds`, backups,
+paquetes ni otras etapas. Los umbrales se conservan como configuración inicial,
+pero su calibración y coexistencia con otros filtros requieren pruebas SRCDS.
+Una invocación observada sigue sin acreditar ejecución original o simulación física.
+`sm_speedwatch_status` solo muestra el último snapshot leído por el timer: no lo
+consume ni altera el cursor del detector. `executed_signal=0 physical_signal=0`
+expone los límites de esta señal, incluso con todas las capacidades disponibles.
 
 Los hooks no hacen disco, red, formateo ni forwards SourcePawn. No asignan memoria
 para cada comando; cada participante posee solo acumuladores y un snapshot, sin
@@ -135,8 +157,8 @@ participante puede liberar su registro. El límite de metadatos 65535 protege el
 agregado; no bloquea ni cambia la decisión del juego. `GetStatus(1/2)` informa
 memoria del servicio/registros, no todo SourceMod ni las reservas de SourceHook.
 La caché diagnóstica de SourcePawn mantiene una muestra pequeña por slot.
-El forward heredado sigue exportado: permanece su coste de preparación de
-argumentos aun cuando el núcleo esté presente. No hay ahorro de CPU demostrado.
+La API pública de alertas y episodios sigue exportada. Se retiró el callback
+SourcePawn por comando; no hay ahorro de CPU demostrado sin medición comparable.
 
 ## Instalación y rollback
 
@@ -147,7 +169,54 @@ No se distribuyen SDKs ni librerías del juego. Se reutiliza el offset por nombr
 de SDKTools; no se añade un archivo de gamedata con offsets sin evidencia propia.
 Mantener las gamedata oficiales al actualizar el juego y volver a validar los hooks.
 
-Para rollback, descargar el plugin y la extensión, retirar el binario del core y
-recargar el SMX: al no encontrar la extensión opcional continúa en modo heredado.
-Confirmar status, gracia y API antes de volver a utilizar las alertas. La instalación,
-recarga y rollback efectivos siguen pendientes de validación en SRCDS.
+Para rollback de esta migración, restaurar juntos SMX y extensión de una release
+anterior validada. Quitar solo la extensión suspende el detector 0.10.0 y no activa
+ningún backend alternativo. Confirmar status, gracia y API antes de volver a usar
+las alertas. La instalación, recarga y rollback de 0.10.0 requieren validación SRCDS.
+
+## Diagnóstico de la evaluación
+
+El log añade motivos explícitos (y máscara), sesión/evaluación/epoch e identidad
+de ventana para enlazar lectura, evaluación, sospecha y alerta. La lectura ausente
+se registra como `sample_unavailable`, sin inventar una causa que la API no expone.
+El contexto inicial y el contrato de correlación se describen en
+[logs y debug](../logging.md#contexto-y-correlación-del-candidato-0100).
+
+## Lectura, evaluación e identidad en 0.12.0
+
+La versión 2 mantiene 48 celdas y exige recompilar los consumidores nativos.
+Una solicitud v1 se rechaza antes de tocar el destino. No cambia el include
+público `l4d2_speedwatch.inc` que consume BanSystem Demo.
+
+`ReadNativeObservation` copia sin efectos secundarios; `EvaluateNativeWindow`
+valida y avanza el cursor exclusivo de la regla; status y la API pública leen
+la caché. Los campos `CoreCell_*` y `SampleCell` documentan la serialización.
+`NativeCadenceWindow` entrega a la política comandos/duración/intervalo tipados.
+Solo se guarda una observación wire por participante y una evaluación distinta;
+no se mantiene otra copia del recolector ni historial de comandos.
+
+La identidad compuesta contiene instancia, conexión userid/serial, generación de
+participante, epoch de configuración/observación y sample_id low/high. Un cambio
+interrumpe continuidad; la primera ventana solo prepara el cursor. La instancia
+se genera con reloj monotónico del proceso y desempate entre servicios; no es
+UUID de incidente, identidad global entre hosts ni tiempo Unix.
+
+Los estados de regla distinguen ausente, publicado, obsoleto, interrumpido,
+capacidad ausente, inválido, primera ventana y duplicado. Datos ausentes jamás
+son cero actividad. La retención es 2 s; ventanas 0.5–2 s y lease 2.5 s pertenecen
+al servicio y tienen constantes explícitas. El validador del consumidor repite
+los límites como defensa del contrato; no construye otra ventana.
+
+Disponibilidad por grupo: bloques, intentos y equipo. Calidad de reloj/ticks o
+identidad afecta todos los grupos; metadatos inválidos pertenecen a bloques;
+saturación/indisponibilidad puede afectar bloques e intentos y se trata de forma
+conservadora. Las máscaras `SPEEDWATCH_QUALITY_*` nombran esas dependencias.
+La regla de cadencia necesita intentos, equipo y bloques para excluir ignore/paused;
+no necesita señal física ni pasos ejecutados. Mala calidad de un grupo requerido
+o bits desconocidos interrumpen; no se sustituye un contador por otro. Perder o
+recuperar capacidades reinicia la observación, también a nivel de participante.
+
+`GetStatus(3)` consulta propiedad sin reclamarla: 0 libre, 1 consumidor actual,
+2 otro plugin. SpeedWatch suspende la regla y evita Pulse/SetParticipant si el
+controlador pertenece a otro consumidor. Su liberación exige epoch nuevo y
+ventana de preparación; nunca transforma el hueco en recuperación.

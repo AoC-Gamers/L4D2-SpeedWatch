@@ -4,11 +4,12 @@
 
 ## Alcance del detector
 
-La señal es el número de invocaciones de `OnPlayerRunCmdPre` por tiempo real,
-comparado con el tickrate nominal del servidor. Se cuentan las invocaciones,
-sin usar `cmdnum` ni `tickcount` enviados por el cliente como reloj o como
-presupuesto. El forward se ejecuta antes de otros filtros de comandos: una
-alerta no acredita que todos esos comandos terminaran simulando movimiento.
+La señal es el número de intentos de `PlayerRunCommand` agregados por el core
+nativo, dividido por la duración monotónica de su ventana y comparado con el
+intervalo nominal de esa misma ventana. No se usa `cmdnum` ni `tickcount` del
+cliente como reloj o presupuesto. El hook es observacional: una alerta no acredita
+que esos intentos terminaran simulando movimiento. Desde 0.10.0 no hay callback
+`OnPlayerRunCmdPre` en el detector ni fallback al backend anterior.
 
 Este enfoque apunta al speedhack basado en exceso de comandos. No detecta por
 sí solo toda modificación de velocidad, aceleración, teleport o exploits que
@@ -25,23 +26,23 @@ al mecanismo preventivo de SMAC.
 
 ## Diseño
 
-El plugin se organiza en un entrypoint y cuatro módulos privados bajo
-`addons/sourcemod/scripting/`:
+El entrypoint y nueve módulos privados se compilan en un único SMX:
 
-| Archivo | Responsabilidad |
+| Módulo | Autoridad |
 | --- | --- |
-| `l4d2_speedwatch.sp` | Metadatos, ConVars, runtime general, ciclo de vida, eventos y comando de estado |
-| `l4d2_speedwatch/logging.sp` | Logger, archivo, categorías debug y registros obligatorios |
-| `l4d2_speedwatch/integrations.sp` | Forwards y reconciliación de pause, readyup y Left4DHooks |
-| `l4d2_speedwatch/detector.sp` | Conteo, evaluación, resets, muestras, episodios, alertas e implementación de la API |
-| `l4d2_speedwatch/native_core.sp` | Disponibilidad de extensión, coordinación de ventanas y diagnóstico independiente |
+| `state.sp` | Datos separados de observación, evaluación y episodio |
+| `observation.sp` | Temporizador, elegibilidad y resets |
+| `native_client.sp` | Lectura pura, capacidades, cursor y validación nativa |
+| `policy.sp` | Buffer, exceso y racha de cadencia |
+| `episodes.sp` | Active/Recovered/Interrupted, persistencia y cola de forwards |
+| `notifications.sp` | Log, consola y destinatarios de avisos |
+| `public_api.sp` | Publicación y consulta de la evaluación |
+| `integrations.sp` | Pause, readyup y Left4DHooks |
+| `logging.sp` | Registro y diagnóstico |
 
-El entrypoint declara las ConVars y el único runtime general antes de incluir
-los módulos. Incluye logging primero, después detector y finalmente integraciones;
-así el logger y los datos del detector están declarados antes de los callbacks
-del principal. Cada módulo conserva su estado específico. Los cuatro se compilan
-dentro de `l4d2_speedwatch.smx`; no son plugins independientes. El contrato público
-para consumidores sigue en `include/l4d2_speedwatch.inc`.
+Las ConVars y el runtime se declaran en el entrypoint; `state.sp` mantiene los
+estados de dominio. El manifiesto enumera cada fuente explícitamente. El contrato
+público sigue en `include/l4d2_speedwatch.inc`, sin cambios de layout ni firmas.
 
 `AskPluginLoad2` comprueba el motor L4D2 antes de registrar la API; en otro motor
 rechaza la carga con `APLRes_Failure` y un mensaje de error. Guarda `late` una sola
@@ -56,10 +57,9 @@ Los handlers de forwards de los proveedores procesan la transición sin volver a
 comprobar la biblioteca: la notificación proviene del proveedor activo. Las
 llamadas a natives opcionales sí se protegen con la presencia de su biblioteca.
 
-- `OnPlayerRunCmdPre`: comprueba mapa/observación/pausa/readyup/sincronización y elegibilidad en memoria,
-  e incrementa el contador entero de comandos. Solo para humanos monitorizados consulta directamente
-  la ConVar de debug y, si está activo, la máscara de flags. Sin traza habilitada
-  no obtiene userid ni consulta propiedades de entidades, formatea texto o envía chat.
+- El core agrega intentos en hooks C++ sin disco, red ni forwards por comando.
+  SourcePawn consume una ventana por participante y evaluación; el estado/API
+  solo consultan el último resultado publicado.
 - Un timer compartido de 1 s; recorre los slots y consulta estado de los humanos.
 - Solo humanos vivos en equipos 2 o 3. También puede observar infectados fantasma
   si el motor los considera vivos. Bots y espectadores no se evalúan.
@@ -74,13 +74,11 @@ llamadas a natives opcionales sí se protegen con la presencia de su biblioteca.
 - El timer persiste entre mapas; no se crean timers por jugador. SourceMod lo
   libera al descargar el plugin.
 
-La comprobación global compara ticks avanzados con tiempo real. Descarta la
-muestra si el intervalo real del timer sale de 0.5–2 s, si los ticks avanzan
-fuera del 80–120% de lo esperado, cambia el tickrate, no hay simulación, o
-`host_timescale` difiere de 1. Se borra el historial y vuelve a aplicar gracia.
-Es una protección conservadora: puede suspender el detector en servidores con
-bajo rendimiento. No distingue automáticamente todos los problemas de red y
-no promete eliminar falsos positivos. No replica el filtro de latencia de SMAC.
+El core es la autoridad de duración, intervalo estable y avance de ticks de cada
+ventana. SourcePawn solo comprueba activación, `IsServerProcessing()` y
+`host_timescale`; los tiempos globales de su timer son diagnóstico. La política
+usa duración e intervalo de `NativeCadenceWindow`, sin reconstruirlos desde el
+timer. Una ventana inválida interrumpe el episodio y reaplica gracia.
 
 La biblioteca opcional `readyup` excluye su fase de preparación y cuenta regresiva.
 Sin ese proveedor, la observación usa las comprobaciones generales descritas aquí.
@@ -109,7 +107,7 @@ en su archivo propio. Cada alerta también escribe una línea en la consola del 
   Cada reinicio del historial la invalida.
 
 Los eventos de fin descartan inmediatamente comandos, exceso, rachas y muestras
-de API. Suspenden también la traza por comando. `round_start` y
+de API y la admisión de participantes nativos. `round_start` y
 `scavenge_round_start` reabren la observación con gracia y nueva sincronización de
 readyup; las exclusiones de ambos proveedores siguen vigentes. Reanudar pausa,
 salir de readyup, cambiar ConVars o ejecutar cfg no elimina un cierre lógico.
@@ -153,16 +151,14 @@ del alcance de esta señal.
 
 ## Coste esperado
 
-Ambos plugins conservan un callback por comando: no se elimina ese coste.
-`Pre` es de solo lectura y SourceMod no necesita copiar modificaciones de vuelta
-desde este forward, aunque sigue preparando sus argumentos. El timer pasa de
-10 a 1 evaluación nominal por segundo. Las consultas de estado pasan a esa
-evaluación, y SpeedWatch omite consultas periódicas de latencia.
+Desde 0.10.0, SpeedWatch ya no registra un callback SourcePawn por comando.
+Los hooks C++ agregan metadatos e intentos y un timer SourcePawn evalúa cada
+segundo. El core mantiene hooks mientras está cargado; desactivar la observación
+impide agregar evidencia, pero no desmonta los hooks.
 
-Estas diferencias justifican medir una reducción, no afirmar un porcentaje.
 Si otros plugins usan `OnPlayerRunCmd`, sus callbacks y costes siguen presentes.
-Deshabilitar la ConVar detiene el conteo, pero el forward continúa registrado.
-Para medir el coste completo del hook hay que descargar el plugin.
+La retirada de un forward de SpeedWatch no demuestra un ahorro total de CPU:
+se debe medir junto al coste de los hooks nativos bajo la misma carga.
 
 Fuentes de API e implementación:
 [forward de SourceMod](https://github.com/alliedmodders/sourcemod/blob/master/plugins/include/sdktools_hooks.inc)
@@ -171,8 +167,15 @@ y [SDKTools hooks.cpp](https://github.com/alliedmodders/sourcemod/blob/master/ex
 El contrato de episodios y recuperación se describe en [grabación](recording.md).
 Las dependencias se detallan en [integraciones opcionales](integrations.md).
 
-## Núcleo nativo opcional
+## Núcleo nativo del detector
 
-La capa C++ de 0.9.0 agrega metadatos e intentos en ventanas independientes. SourcePawn conserva su detector de cadencia, umbrales y episodios; no se suma recepción con simulación ni se sustituye la señal sin calibración.
+Desde 0.10.0 el detector consume únicamente ventanas nativas de intentos, con continuidad, identidad y calidad verificadas. SourcePawn conserva umbrales, episodios y API. Sin core o con evidencia inválida se interrumpe la observación, sin fallback. Ver el [contrato de ventanas](native-core/index.md) y la [matriz de validación](native-core/validation.md).
 
 Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).
+
+La transición desde fuentes anteriores y el contrato API v2 están en
+[migración nativa](migration-native.md).
+
+La evaluación conserva cadencia/ratio en `SpeedWatchSample`; no hay arrays
+paralelos duplicados de esos valores. El flag de publicación y la identidad
+protegen su consulta durante resets. Las alertas usan una copia inmutable.

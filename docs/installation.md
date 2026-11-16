@@ -31,13 +31,15 @@ el test no se compila en este target. Para empaquetado y automatización, consul
 
 ## Instalación
 
-Copiar únicamente:
+Instalar el ZIP de la plataforma x86 correspondiente. Incluye:
 
 ```text
 .build/smx/addons/sourcemod/plugins/l4d2_speedwatch.smx
   → addons/sourcemod/plugins/l4d2_speedwatch.smx
 addons/sourcemod/translations/l4d2_speedwatch.phrases.txt
   → addons/sourcemod/translations/l4d2_speedwatch.phrases.txt
+Extensión de la release Linux (.so) o Windows (.dll)
+  → addons/sourcemod/extensions/l4d2_speedwatch_core.ext.so (o .dll)
 ```
 
 SDKTools y SDKHooks deben estar disponibles en SourceMod; sus includes conservan
@@ -91,8 +93,10 @@ Para configurar el archivo y sus flags, consultar [logs y debug](logging.md).
 Antes de probar con proveedores, revisar [integraciones opcionales](integrations.md),
 especialmente el escaneo de detours de Left4DHooks durante carga tardía.
 
-## Extensión opcional y paquetes por plataforma
+## Core requerido para detectar y paquetes por plataforma
 
-En 0.9.0 se instala el ZIP Linux x86 o Windows x86. La extensión es opcional; `sm_speedwatch_core_compare 1` habilita diagnóstico experimental, sin cambiar la fuente de alertas. `0` lo suspende. Los defaults de dependencias ahora están en `.deps/smx` y `.deps/exts-<plataforma>`; consultar build-system para migrar overrides.
+Desde 0.10.0, instalar juntos el SMX, traducciones y core del ZIP Linux x86 o Windows x86. El detector usa solo ventanas nativas. Desde 0.12.0 el core es una extensión requerida por el loader; su ausencia impide cargar el plugin. Una API distinta de v2 produce un error explícito al iniciar. Capacidades insuficientes suspenden la regla y se registran sin fallback. Retirar `sm_speedwatch_core_compare` del cfg: fue eliminada. `sm_speedwatch_enable` controla ahora toda la observación. El bit debug 16 queda reservado; ya no hay trazas por callback SourcePawn.
+
+La muestra inicial, los huecos, la mala calidad y los bloques pausados/ignorados interrumpen el historial y aplican gracia. `dropped_packets` se conserva como diagnóstico, sin descarte automático ni nueva gracia; el buffer y la racha consecutiva siguen amortiguando ráfagas. Las firmas de la API pública se conservan; `commandsPerSecond` expresa intentos observados por segundo, sin confirmar ejecución del motor.
 
 Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).

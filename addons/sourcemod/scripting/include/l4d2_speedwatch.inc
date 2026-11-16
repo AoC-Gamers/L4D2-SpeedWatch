@@ -61,6 +61,20 @@ forward void SpeedWatch_OnDetectionStateChanged(int client, int accountId, int u
     SpeedWatchDetectionState state, SpeedWatchDetectionReason reason);
 
 /**
+ * Additive API since 0.11.0. Every >=30 consecutive seconds of valid, non-grace
+ * excess at the confirmed strike threshold, after Active. Does not open another
+ * episode or repeat Active. Normal/zero cadence or any interruption/reset breaks
+ * the interval. Marker starts at 1 per episode and increases monotonically.
+ * confirmedSeconds is the actual sum of accepted native durations (30..32 s),
+ * not wall time, client time, or physical speed. No catch-up/backlog on late load.
+ * Identity is captured at Active. A recorder must revalidate the connection and
+ * associate its existing incident with its own current SourceTV tick; never use
+ * a server tick as a demo tick. May be ignored by older consumers.
+ */
+forward void SpeedWatch_OnDetectionPersistence(int client, int accountId, int userId,
+    int marker, float confirmedSeconds);
+
+/**
  * Última muestra evaluada; no es un historial ni una medición de velocidad física.
  * AccountID es el identificador Steam de 32 bits; 0 indica identidad no validada.
  * engineTime usa GetEngineTime(), en segundos, y no es una fecha Unix.
@@ -71,7 +85,7 @@ enum struct SpeedWatchSample
     int accountId;               /**< AccountID validado o 0 si no está disponible. */
     int userId;                  /**< Identificador de esta conexión; permite revalidar el slot. */
     float engineTime;            /**< Tiempo real del motor al evaluar la muestra. */
-    float commandsPerSecond;     /**< Cadencia observada de callbacks de comandos. */
+    float commandsPerSecond;     /**< Cadencia de invocaciones observadas de PlayerRunCommand. */
     float ratio;                 /**< Comandos / ticks nominales esperados en la muestra. */
     float excess;                /**< Exceso acumulado, en comandos. */
     int consecutiveSamples;      /**< Racha actual de muestras sospechosas. */
@@ -81,7 +95,7 @@ enum struct SpeedWatchSample
 /**
  * Copia la última muestra vigente de un humano vivo, incluyendo muestras en gracia.
  * Devuelve false sin mapa, tras cierre de observación, durante pausa/readyup/
- * sincronización, con detector desactivado, sin muestra,
+ * sincronización, con detector desactivado, core no disponible/incompatible, sin muestra,
  * muestra de más de 2 s, conexión inválida o tras un reinicio del historial.
  * Los datos pertenecen al instante de evaluación, no al instante de consulta.
  *

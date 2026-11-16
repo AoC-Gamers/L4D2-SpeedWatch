@@ -8,13 +8,13 @@ Validado localmente: compilación con SourcePawn 1.12.0.7255 y `-E`, sin warning
 metadatos del SMX con `pause`, `readyup` y `left4dhooks` marcados `required=0` e inicializadores
 de natives opcionales exportados. API y consumidores opcional/obligatorio compilados con `-E`;
 contrato de dependencia e imports/exports verificados en los metadatos SMX.
-La división en tres módulos privados conserva los bloques originales y compila
-con el mismo compilador y `-E`. Se comprueba que el ZIP contiene los tres módulos
+La división en nueve módulos privados compila con el mismo compilador y `-E`.
+Se comprueba que el ZIP contiene los nueve módulos vigentes
 y un único SMX de producción, excluye el test, los includes de terceros y la
 documentación (`docs/` y `README.md`). La licencia y el log de compilación se conservan.
 La recompilación completa usa las fuentes e includes del checkout junto con el SDK.
 Revisión estática: callbacks de biblioteca pasivos, ausencia
-de consultas a `IsInPause()` en la ruta por comando y registro de alertas sin
+de un callback SourcePawn por comando y registro de alertas sin
 condición de debug o máscara. Readyup usa la presencia de su biblioteca como garantía de su native;
 conteo, evaluación y consulta pública excluyen readyup y sincronización pendiente.
 Pendiente: carga en SRCDS, traducciones en chat, detección real, falsos positivos,
@@ -191,3 +191,36 @@ resultado remoto ni las pruebas en SRCDS.
 La evidencia del core está separada en pruebas de lógica real, SDK ABI x86, SourceHook con objeto sintético, pipeline y matriz pendiente de SRCDS. Las pruebas anteriores de 0.8.0 son históricas; no acreditan el comportamiento runtime del nuevo núcleo.
 
 Ver [contrato del núcleo](native-core/index.md), [evidencia ABI](native-core/evidence.md) y [validación](native-core/validation.md).
+
+## Migración nativa 0.10.0
+
+El detector ya no cuenta `OnPlayerRunCmdPre`. Sus ventanas, estado de pérdida
+del core y criterios de aceptación se describen en el [contrato](native-core/index.md).
+Las pruebas de política ejecutan funciones de producción mediante dobles C++;
+compilar con spcomp es un gate separado. Ninguna prueba aislada certifica
+comportamiento de motor, falsos positivos, rendimiento o calibración en partida.
+La aceptación SRCDS de esta migración sigue pendiente y no hereda la aceptación
+de carga de 0.9.0.
+
+## Regresiones de la separación nativa 0.12.0
+
+Los arneses ejecutan cuerpos de producción para elegibilidad, regla, episodios,
+reset global, alertas y reconciliación. Se eliminan `EXPECTED_UNCHANGED` y sus
+hashes: las comprobaciones son de comportamiento. Cubren consultas repetidas sin
+consumo, core ausente/incompatible, pérdida/retorno de capacidades, instancia,
+identidad/serial/generación/epoch, duplicados, huecos, calidad, grupos requeridos,
+reentrancia y cooldown. Los marcadores conservan 29/30/60 s y cortes de continuidad.
+
+El include público de BanSystem permanece idéntico. Los consumidores nativos se
+recompilan para API v2 y sus campos nombrados. Las pruebas del codec verifican
+instancia uint64 y rechazo de v1 sin escribir; el servicio distingue obsolescencia.
+La matriz SRCDS y las mediciones pendientes se conservan en
+[migración](migration-native.md#aceptación-pendiente). No hay despliegue implícito.
+
+Validación del conjunto local 0.12.0: 28 pruebas Python/modeladas PASS; productor
+SMX y tres variantes de consumidores compilados sin advertencias; extensión ELF32
+Linux, servicio/codec x86 y SourceHook PASS. Servicio/codec x64 bajo ASan/UBSan
+PASS. BanSystem Demo compila sin advertencias con su include público sin cambios
+y pasa `check-lilac-observations.py`, incluidos los marcadores de persistencia.
+ZIP Linux validado, sin módulos retirados, harnesses ni documentos; actionlint,
+enlaces locales y `git diff --check` PASS. No se ejecutaron MSVC ni SRCDS.

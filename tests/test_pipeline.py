@@ -74,7 +74,7 @@ print('compiler spy completed')
             for name in ("LICENSE", "compile.log",
                          "addons/sourcemod/scripting/l4d2_speedwatch/logging.sp",
                          "addons/sourcemod/scripting/l4d2_speedwatch/integrations.sp",
-                         "addons/sourcemod/scripting/l4d2_speedwatch/detector.sp",
+                         "addons/sourcemod/scripting/l4d2_speedwatch/observation.sp",
                          "addons/sourcemod/scripting/include/l4d2_speedwatch.inc",
                          "addons/sourcemod/translations/l4d2_speedwatch.phrases.txt"):
                 self.assertIn(name, files)

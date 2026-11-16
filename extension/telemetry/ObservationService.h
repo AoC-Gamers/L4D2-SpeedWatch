@@ -6,7 +6,11 @@
 
 namespace speedwatch {
 constexpr int kMaxSlots = 256; // Explicit limit; extension rejects larger servers.
-constexpr std::uint32_t kApiVersion = 1;
+constexpr std::uint32_t kApiVersion = 2;
+constexpr std::uint64_t kWindowMinUs = 500000, kWindowMaxUs = 2000000;
+constexpr std::uint64_t kSampleRetentionUs = kWindowMaxUs, kControllerLeaseUs = 2500000;
+constexpr float kIntervalMin = 0.001f, kIntervalMax = 1.0f;
+enum SampleState { NoSample = 0, Published = 1, Stale = 2, Interrupted = 3 };
 enum Capability : std::uint32_t { Blocks = 1, RunAttempts = 2, TeamContext = 4 };
 enum Quality : std::uint32_t { InvalidMetadata = 1, Overflow = 2, ClockDiscontinuity = 4,
     TickDiscontinuity = 8, UnavailableHook = 16, ParticipantChanged = 32 };
@@ -19,7 +23,7 @@ struct Counters {
 };
 struct Snapshot {
     Identity identity;
-    std::uint64_t sampleId = 0, startUs = 0, endUs = 0;
+    std::uint64_t instanceId = 0, sampleId = 0, startUs = 0, endUs = 0;
     std::uint32_t epoch = 0, generation = 0, capabilities = 0, quality = 0;
     int startTick = 0, endTick = 0, team = 0;
     float interval = 0;
@@ -36,6 +40,7 @@ struct Participant {
 };
 class ObservationService {
 public:
+    ObservationService();
     bool SetParticipant(int slot, Identity identity, int team, bool eligible, std::uint32_t capabilities);
     void Remove(int slot);
     void Reset();
@@ -44,6 +49,7 @@ public:
     void Block(int slot, std::uint64_t nowUs, int numcmds, int totalcmds, int dropped, bool ignore, bool paused, int tick = 0);
     void RunAttempt(int slot, std::uint64_t nowUs, int tick = 0);
     const Snapshot* Sample(int slot, std::uint64_t nowUs) const;
+    SampleState State(int slot, std::uint64_t nowUs) const;
     bool Active(int slot, std::uint64_t nowUs) const;
     std::size_t Count() const { return count_; }
     std::size_t MemoryUsed() const { return count_ * sizeof(Participant) + sizeof(*this); }
@@ -52,7 +58,7 @@ private:
     Participant* Find(int slot) const;
     std::array<std::unique_ptr<Participant>, kMaxSlots + 1> records_{};
     std::uint32_t generation_ = 0, epoch_ = 0;
-    std::uint64_t sampleId_ = 0, invocation_ = 0, startUs_ = 0;
+    std::uint64_t instanceId_ = 0, sampleId_ = 0, invocation_ = 0, startUs_ = 0;
     int startTick_ = 0;
     float interval_ = 0;
     bool enabled_ = false;

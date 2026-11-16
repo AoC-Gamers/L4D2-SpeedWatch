@@ -150,3 +150,12 @@ Los assets son `l4d2-speedwatch-linux-latest.zip`,
 El antiguo asset sin plataforma no se vuelve a generar. Los permisos son de
 lectura por defecto; el filtro de paths de PR y las comprobaciones de SpeedWatch
 se conservan. La adaptación local del workflow no acredita una ejecución remota.
+
+## Manifiesto de la versión 0.12.0
+
+El paquete contiene los nueve módulos internos vigentes y el core nativo de la
+misma versión. `detector.sp` y `native_core.sp` se retiran del manifiesto y del
+árbol actual. Los harnesses, documentos y binarios anteriores no se incluyen.
+Make y AMBuild conservan su orden y no publican por compilar/empaquetar.
+El include nativo y el codec deben concordar en API v2 y 48 celdas. Un ZIP Windows
+requiere build/tests Windows reales; la validación PE de fixtures no los sustituye.

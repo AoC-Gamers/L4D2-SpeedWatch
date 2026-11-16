@@ -27,6 +27,7 @@ int main() {
         auto copy=*sample;
         assert(s.Sample(64,2000000)->sampleId==copy.sampleId);
         assert(s.Sample(64,2000000)->counters.blocks==2); // No consumption or duplicate charging.
+        assert(s.State(64,4000001)==Stale);
         assert(!s.Sample(64,4000001));
         // Empty subsequent observation is distinct from previously published blocks.
         s.Pulse(true,1,3000000,90,1.f/30);
@@ -57,6 +58,11 @@ int main() {
         s.Pulse(true,3,10000000,400,1.f/30);
         s.Pulse(true,3,9999999,430,1.f/30);assert(s.Sample(64,9999999)->quality&ClockDiscontinuity);
     }
+    {
+        ObservationService a,b;start(a);start(b);
+        a.Pulse(true,1,2000000,60,1.f/30);b.Pulse(true,1,2000000,60,1.f/30);
+        assert(a.Sample(64,2000000)->instanceId!=b.Sample(64,2000000)->instanceId);
+    }
     for(int population : {0,1,2,4,6,8,12,100}) {
         ObservationService s;
         for(int i=0;i<population;++i) assert(s.SetParticipant(i+50,id(i+50),i%2+2,true,Blocks));
@@ -75,16 +81,17 @@ int main() {
         s.Remove(64);assert(s.Count()==0 && !s.Sample(64,3000000));
     }
     {
-        Snapshot s;s.sampleId=0xfedcba9876543210ULL;s.identity=id();s.counters.runCommandAttempts=0x123456789ULL;
+        Snapshot s;s.instanceId=0x123456789abcdef0ULL;s.sampleId=0xfedcba9876543210ULL;s.identity=id();s.counters.runCommandAttempts=0x123456789ULL;
         s.startUs=1000000;s.endUs=2000000;s.interval=1.f/30;s.capabilities=Blocks|RunAttempts;
         std::int32_t out[kSampleCells+2];for(auto& n:out)n=0x1234;
-        assert(!EncodeSample(&s,2,out,kSampleCells));assert(out[0]==0x1234);
-        assert(!EncodeSample(&s,1,out,kSampleCells-1));assert(out[0]==0x1234);
-        assert(EncodeSample(&s,1,out,kSampleCells+2));assert(out[kSampleCells]==0x1234 && out[kSampleCells+1]==0x1234);
+        assert(!EncodeSample(&s,1,out,kSampleCells));assert(out[0]==0x1234);
+        assert(!EncodeSample(&s,kApiVersion,out,kSampleCells-1));assert(out[0]==0x1234);
+        assert(EncodeSample(&s,kApiVersion,out,kSampleCells+2));assert(out[kSampleCells]==0x1234 && out[kSampleCells+1]==0x1234);
         assert(static_cast<std::uint32_t>(out[10])==0x76543210u && static_cast<std::uint32_t>(out[11])==0xfedcba98u);
+        assert(static_cast<std::uint32_t>(out[45])==0x9abcdef0u && out[46]==0x12345678 && out[47]==Published);
         assert(out[33]==0x23456789 && out[34]==1 && out[3]==3);
-        assert(!EncodeSample(nullptr,1,out,kSampleCells));assert(out[0]==1 && out[1]==kSampleCells && out[33]==0);
-        assert(!EncodeSample(&s,1,nullptr,kSampleCells));
+        assert(!EncodeSample(nullptr,kApiVersion,out,kSampleCells));assert(out[0]==kApiVersion && out[1]==kSampleCells && out[33]==0);
+        assert(!EncodeSample(&s,kApiVersion,nullptr,kSampleCells));
     }
     std::cout<<"ObservationService/codec tests passed ("<<sizeof(void*)*8<<"-bit host). No SRCDS/SourceHook claims.\n";
 }
