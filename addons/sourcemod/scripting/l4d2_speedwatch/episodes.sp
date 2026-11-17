@@ -85,11 +85,11 @@ bool FlushDetectionEvents()
         return false;
     }
     g_Runtime.dispatchingDetectionEvents = true;
-    while (g_DetectionEvents.Length > 0)
+    int cursor = 0;
+    while (cursor < g_DetectionEvents.Length)
     {
         DetectionStateEvent notification;
-        g_DetectionEvents.GetArray(0, notification, sizeof(notification));
-        g_DetectionEvents.Erase(0);
+        g_DetectionEvents.GetArray(cursor++, notification, sizeof(notification));
         if (notification.persistenceMarker > 0)
         {
             DetectionLog("detections", "event=detection_persistence client=%d accountid=%d userid=%d marker=%d confirmed_seconds=%.3f",
@@ -114,6 +114,7 @@ bool FlushDetectionEvents()
         }
         Call_Finish();
     }
+    g_DetectionEvents.Clear();
     g_Runtime.dispatchingDetectionEvents = false;
     return true;
 }

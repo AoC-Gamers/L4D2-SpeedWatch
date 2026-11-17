@@ -75,6 +75,7 @@ public Action OnSampleTimer(Handle timer)
     PulseNativeCore(true);
     int   required = g_cvSamples.IntValue;
     int generation = g_Runtime.observationGeneration;
+    MovementProfile profile;
     for (int client = 1; client <= MaxClients; client++)
     {
         if (!g_bHuman[client])
@@ -129,9 +130,11 @@ public Action OnSampleTimer(Handle timer)
         float buffer = g_cvBurst.FloatValue / nativeInterval;
         g_ClientSamples[client].commandsPerSecond = float(commands) / duration;
         g_ClientSamples[client].ratio = float(commands) / nativeExpected;
+        MovementContext context;
         if (now < g_GraceUntil[client])
         {
             StoreClientSample(client, now, true);
+            CaptureSampleContext(client, now, false, profile, context);
             DebugClientLog(DEBUG_SAMPLES, "samples", client, "event=client_sample slot=%d userid=%d state=grace commands=%d cmds_per_second=%.2f ratio=%.3f remaining=%.2f",
                      client, GetClientUserId(client), commands, g_ClientSamples[client].commandsPerSecond, g_ClientSamples[client].ratio, g_GraceUntil[client] - now);
             continue;
@@ -148,6 +151,7 @@ public Action OnSampleTimer(Handle timer)
                      client, GetClientUserId(client), g_Strikes[client], required, now >= g_NextAlert[client] ? 0.0 : g_NextAlert[client] - now);
         }
 
+        CaptureSampleContext(client, now, g_Strikes[client] >= required && now >= g_NextAlert[client], profile, context);
         int userId = g_ClientSamples[client].userId;
         UpdateDetectionEpisode(client, commands, allowed, duration, required);
         if (FlushDetectionEvents())
@@ -167,7 +171,7 @@ public Action OnSampleTimer(Handle timer)
         if (g_Strikes[client] >= required && now >= g_NextAlert[client])
         {
             g_NextAlert[client] = now + g_cvCooldown.FloatValue;
-            SendAlert(client);
+            SendAlert(client, context, profile);
             // Un consumidor puede pausar, iniciar readyup o cambiar reglas en el forward.
             if (!bEvaluationCurrent(generation))
             {

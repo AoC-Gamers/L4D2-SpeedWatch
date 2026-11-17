@@ -153,7 +153,7 @@ se conservan. La adaptación local del workflow no acredita una ejecución remot
 
 ## Manifiesto de la versión 0.12.0
 
-El paquete contiene los nueve módulos internos vigentes y el core nativo de la
+El paquete contiene los diez módulos internos vigentes y el core nativo de la
 misma versión. `detector.sp` y `native_core.sp` se retiran del manifiesto y del
 árbol actual. Los harnesses, documentos y binarios anteriores no se incluyen.
 Make y AMBuild conservan su orden y no publican por compilar/empaquetar.

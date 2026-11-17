@@ -8,8 +8,8 @@ Validado localmente: compilación con SourcePawn 1.12.0.7255 y `-E`, sin warning
 metadatos del SMX con `pause`, `readyup` y `left4dhooks` marcados `required=0` e inicializadores
 de natives opcionales exportados. API y consumidores opcional/obligatorio compilados con `-E`;
 contrato de dependencia e imports/exports verificados en los metadatos SMX.
-La división en nueve módulos privados compila con el mismo compilador y `-E`.
-Se comprueba que el ZIP contiene los nueve módulos vigentes
+La división en diez módulos privados compila con el mismo compilador y `-E`.
+Se comprueba que el ZIP contiene los diez módulos vigentes
 y un único SMX de producción, excluye el test, los includes de terceros y la
 documentación (`docs/` y `README.md`). La licencia y el log de compilación se conservan.
 La recompilación completa usa las fuentes e includes del checkout junto con el SDK.
@@ -224,3 +224,17 @@ PASS. BanSystem Demo compila sin advertencias con su include público sin cambio
 y pasa `check-lilac-observations.py`, incluidos los marcadores de persistencia.
 ZIP Linux validado, sin módulos retirados, harnesses ni documentos; actionlint,
 enlaces locales y `git diff --check` PASS. No se ejecutaron MSVC ni SRCDS.
+
+## Contexto diagnóstico y cola FIFO
+
+Pruebas locales del conjunto adaptado a 0.12.0: 30 pruebas PASS. El arnés del
+contexto ejecuta funciones productivas con propiedades/ConVars/logger modelados:
+trabajo cero con diagnóstico apagado o archivo ausente, snapshots anteriores a
+cambios de identidad, correlación nativa, datos ausentes/NaN, pins, flags, velocidad
+horizontal y configuración de bhop. El arnés de alertas rechaza un snapshot de
+otra conexión; el FIFO cubre inserciones reentrantes, orden estado/marcador/terminal,
+lectura única de 2048 entradas y una limpieza por drenaje. No ejecuta VM ni motor.
+
+Se recompilan productor y consumidores de API sin cambiar includes públicos.
+La matriz de runtime del [contexto](context.md#validación) sigue pendiente; no
+se infiere precisión física ni reducción medida de recursos a partir del arnés.

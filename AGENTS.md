@@ -30,8 +30,14 @@
   cursor owner, and status/API output independent of evaluation. Do not charge a
   window twice. Core instance, userid/serial, participant/configuration generations
   and sample ID fence continuity. Use named wire cells; preserve uint64 pairs.
-- Modules: state, observation, native_client, policy, episodes, notifications,
+- Modules: state, context, observation, native_client, policy, episodes, notifications,
   public_api, integrations and logging. Update the explicit package manifest when
   moving sources. Replace source hashes with production-body behavior regressions.
 - Preserve Demo persistence every 30 confirmed seconds and existing public layouts;
   BanSystem owns incident UUIDs and real SourceTV recording ticks. Never invent them.
+
+- Movement context is an evaluation-local diagnostic snapshot, never policy input.
+  Capture only with a usable log sink and samples debug or a due alert, before
+  external episode forwards. Preserve native identity and unknown values; server
+  ticks are not demo ticks. Drain state/persistence notifications with one FIFO
+  cursor and one final clear, allowing append during guarded callbacks.

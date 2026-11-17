@@ -26,6 +26,7 @@ cada 30 segundos consecutivos de exceso confirmado, dentro del mismo episodio.
 
 - Evaluación compartida cada segundo, con margen, buffer, gracia y umbral configurables.
 - Alertas para administradores o chat público, con cooldown por jugador.
+- [Contexto diagnóstico L4D2](docs/context.md) en muestras debug y alertas, sin modificar la regla de detección.
 - Registro obligatorio de detecciones y transiciones; debug mediante ConVars y flags.
 - API con client, AccountID, userid y consulta de la última muestra válida.
 - Episodios Active, Recovered e Interrupted para coordinar grabaciones externas.

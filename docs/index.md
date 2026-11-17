@@ -12,6 +12,7 @@ Documentación del plugin L4D2 SpeedWatch 0.12.0. Elegir la guía según el trab
 | [Núcleo nativo del detector](native-core/index.md) | Señal de intentos, API, ventanas, degradación, evidencia ABI y validación |
 | [Participantes y aforos reducidos](participants.md) | Elegibilidad individual, espectadores, 1v1/2v2/3v3/4v4 y alcance de las pruebas |
 | [Integraciones opcionales](integrations.md) | Contratos y comportamiento de Left4DHooks, pause y readyup; carga tardía y sincronización |
+| [Contexto de L4D2](context.md) | Fotografía de movimiento/estado, configuración declarada y correlación con ventanas nativas |
 | [Logs y debug](logging.md) | Ruta, ConVars, máscara de flags, registros obligatorios, append, fallos y migración de cfg |
 | [API pública](api.md) | Include, biblioteca, identidad, alertas, consulta de muestras y consumidor de diagnóstico |
 | [Episodios y grabación](recording.md) | Active, Recovered, Interrupted, recuperación, motivos, callbacks y política del grabador |

@@ -75,6 +75,10 @@ int main(){
         unit=r'''
 #include <cassert>
 #include <vector>
+struct MovementContext {bool captured=true;int client=1,userId=100;};
+struct MovementProfile {};
+int contexts=0;
+void WriteMovementContext(MovementContext,MovementProfile,bool alert){assert(alert);contexts++;}
 struct SpeedWatchSample {int client=1,accountId=42,userId=100;float commandsPerSecond=450,ratio=15,excess=120;int consecutiveSamples=3;};
 SpeedWatchSample g_ClientSamples[5];float g_LastRate[5]{},g_LastRatio[5]{};
 struct Cvar{bool BoolValue=false;} cv,*g_cvPublic=&cv;
@@ -90,9 +94,9 @@ void Call_PushFloat(float n){forwarded.push_back(n);}
 void Call_Finish(){g_ClientSamples[1].userId=999;}
 '''
         main=r'''
-int main(){SendAlert(1);assert(recipients.size()==1&&recipients[0]==2&&prints==1);
+int main(){MovementContext context;MovementProfile profile;SendAlert(1,context,profile);assert(contexts==1);assert(recipients.size()==1&&recipients[0]==2&&prints==1);
 assert(forwarded.size()==7&&forwarded[1]==42&&forwarded[2]==100&&forwarded[3]==450);
-cv.BoolValue=true;recipients.clear();SendAlert(1);assert(recipients.size()==2&&recipients[0]==2&&recipients[1]==3);}
+cv.BoolValue=true;recipients.clear();SendAlert(1,context,profile);assert(contexts==1);assert(recipients.size()==2&&recipients[0]==2&&recipients[1]==3);}
 '''
         run_cpp(unit+alert+main)
 

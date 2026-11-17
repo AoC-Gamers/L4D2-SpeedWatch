@@ -21,6 +21,7 @@
           "l4d2_speedwatch": {
             "files": [
               "state.sp",
+              "context.sp",
               "observation.sp",
               "native_client.sp",
               "policy.sp",

@@ -31,8 +31,9 @@ DetectionEpisode g_Detections[65]{};
 struct Array {
  std::vector<DetectionStateEvent> rows; int Length=0;
  void PushArray(const DetectionStateEvent& event,int){rows.push_back(event);Length=rows.size();}
- void GetArray(int index,DetectionStateEvent& event,int){event=rows.at(index);}
- void Erase(int index){rows.erase(rows.begin()+index);Length=rows.size();}
+ void GetArray(int index,DetectionStateEvent& event,int){event=rows.at(index);reads++;}
+ int reads=0,clears=0;
+ void Clear(){rows.clear();Length=0;clears++;}
 } storage;
 Array* g_DetectionEvents=&storage;
 struct {bool dispatchingDetectionEvents=false;} g_Runtime;
@@ -65,8 +66,12 @@ int main(){
  assert(calls[1].args[0]==21&&calls[1].args[1]==42&&calls[1].args[2]==100);
  assert(calls[1].args[3]==1&&calls[1].args[4]==30.25);
  assert(calls[2].args[3]==SpeedWatchDetection_Interrupted);
- assert(storage.Length==0&&!g_Runtime.dispatchingDetectionEvents);
+ assert(storage.Length==0&&!g_Runtime.dispatchingDetectionEvents&&storage.reads==3&&storage.clears==1);
  assert(!FlushDetectionEvents());
+ // A large FIFO drain reads every event once and clears once, without per-item shifts.
+ for(int i=0;i<2048;i++) QueueDetectionEvent(21,SpeedWatchDetection_Active,SpeedWatchReason_None);
+ assert(FlushDetectionEvents());
+ assert(storage.Length==0&&storage.reads==2051&&storage.clears==2&&calls.size()==2051);
 }
 '''
         with tempfile.TemporaryDirectory() as tmp:

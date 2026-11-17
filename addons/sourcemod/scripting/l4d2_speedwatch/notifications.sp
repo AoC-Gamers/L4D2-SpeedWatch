@@ -1,11 +1,13 @@
 /** notifications; included by l4d2_speedwatch.sp. */
 
-void SendAlert(int suspect)
+void SendAlert(int suspect, MovementContext context, MovementProfile profile)
 {
     // Captura valores antes de notificar a consumidores que pueden cambiar el estado.
     SpeedWatchSample sample;
     sample = g_ClientSamples[suspect];
     int userid = sample.userId;
+    if (context.captured && context.client == sample.client && context.userId == userid)
+        WriteMovementContext(context, profile, true);
     DetectionClientLog(suspect, "detections", "event=alert client=%d accountid=%d suspect_userid=%d cmds_per_second=%.2f ratio=%.3f excess=%.2f strikes=%d public=%d",
               sample.client, sample.accountId, userid, sample.commandsPerSecond, sample.ratio, sample.excess,
               sample.consecutiveSamples, g_cvPublic.BoolValue);

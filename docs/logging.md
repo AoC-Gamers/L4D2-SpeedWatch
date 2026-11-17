@@ -186,3 +186,12 @@ presentes. Core ausente o API incompatible impide iniciar el plugin y el error
 lo informa SourceMod. `core_instance_changed` interrumpe continuidad.
 Status añade `observation_state` según el enum del include. Los motivos de descarte
 y la identidad de ventana se conservan; `dropped_packets` sigue sin descartarla.
+
+## Fotografía de contexto L4D2
+
+`[context] event=movement_context schema=2` acompaña muestras cuando está activo
+DEBUG_SAMPLES y alertas aun con debug apagado. El perfil se captura una vez por
+evaluación y el sujeto antes de los forwards; sin archivo no se consultan sus
+propiedades físicas. Incluye identidad de ventana nativa y datos desconocidos
+como `-1`. Ver el [contrato e interpretación](context.md). No introduce una
+regla física, un tick SourceTV ni un ID de incidente.

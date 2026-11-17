@@ -21,7 +21,7 @@ def product_source():
 
 
 def function(source: str, name: str) -> str:
-    match = re.search(r'^(?:public )?(?:bool|void|int|any|NativeObservationState) ' + re.escape(name) + r'\([^\n]*\)\n\{', source, re.M)
+    match = re.search(r'^(?:public )?(?:bool|void|int|float|any|NativeObservationState) ' + re.escape(name) + r'\([^\n]*\)\n\{', source, re.M)
     if match is None:
         raise AssertionError(f'Function not found: {name}')
     opening = source.index('{', match.start())

@@ -26,11 +26,12 @@ al mecanismo preventivo de SMAC.
 
 ## Diseño
 
-El entrypoint y nueve módulos privados se compilan en un único SMX:
+El entrypoint y diez módulos privados se compilan en un único SMX:
 
 | Módulo | Autoridad |
 | --- | --- |
 | `state.sp` | Datos separados de observación, evaluación y episodio |
+| `context.sp` | Fotografía diagnóstica local y perfil compartido de la evaluación |
 | `observation.sp` | Temporizador, elegibilidad y resets |
 | `native_client.sp` | Lectura pura, capacidades, cursor y validación nativa |
 | `policy.sp` | Buffer, exceso y racha de cadencia |
@@ -179,3 +180,7 @@ La transición desde fuentes anteriores y el contrato API v2 están en
 La evaluación conserva cadencia/ratio en `SpeedWatchSample`; no hay arrays
 paralelos duplicados de esos valores. El flag de publicación y la identidad
 protegen su consulta durante resets. Las alertas usan una copia inmutable.
+
+El [contexto diagnóstico](context.md) solo acompaña muestras debug y alertas.
+Se captura antes de forwards y no participa en la regla de cadencia. La cola
+de estados/persistencia drena mediante cursor, con reentrancia protegida.

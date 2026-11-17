@@ -165,13 +165,14 @@ ConVar             g_cvTimescale;
 // Módulos privados del mismo plugin; las ConVars y el runtime se declaran arriba.
 #include "l4d2_speedwatch/logging.sp"
 #include "l4d2_speedwatch/state.sp"
+#include "l4d2_speedwatch/native_client.sp"
+#include "l4d2_speedwatch/context.sp"
 #include "l4d2_speedwatch/observation.sp"
 #include "l4d2_speedwatch/policy.sp"
 #include "l4d2_speedwatch/episodes.sp"
 #include "l4d2_speedwatch/notifications.sp"
 #include "l4d2_speedwatch/public_api.sp"
 #include "l4d2_speedwatch/integrations.sp"
-#include "l4d2_speedwatch/native_client.sp"
 
 /**
  * Valida L4D2, guarda la carga tardía y registra la biblioteca y los natives.
