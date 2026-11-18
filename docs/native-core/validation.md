@@ -3,7 +3,7 @@
 La separación 0.12.0 incorpora API nativa v2, identidad de instancia, estado de
 obsolescencia y módulos nuevos. Los checkpoints de versiones anteriores más
 abajo son históricos: no validan automáticamente este conjunto ni su runtime.
-La aceptación actual pendiente está en [migración](../migration-native.md).
+La aceptación actual pendiente está en [migración](../migration-native/README.md).
 
 ## Capas de evidencia
 
@@ -30,9 +30,9 @@ Comandos reproducibles en Linux con multilib instalado:
 make deps-smx deps-exts-linux
 make build-smx build-api-test build-exts-linux
 make test-exts-linux test-ci
-python3 scripts/run-native-tests.py --platform linux --sanitize
-make package-smx package-exts-linux release-linux validate-artifact
-actionlint .github/workflows/sourcemod-build.yml
+make test-native-sanitized
+make package-smx package-exts-linux release-linux validate-artifact-linux
+make check-ci
 git diff --check
 ```
 
@@ -42,7 +42,7 @@ usa `-m32`; no confundir ambas evidencias. No hay captura detallada implementada
 que pueda desbordar un historial: solo registros acotados y agregados saturantes.
 
 En Windows: abrir terminal x86 de MSVC (CI inicializa `vcvarsall.bat x86`
-mediante `scripts/setup-msvc.py`), Python 3.12 y make;
+mediante `make setup-msvc`), Python 3.12 y make;
 `make deps-exts-windows build-exts-windows test-exts-windows package-exts-windows
 PYTHON=python`. Todos los procesos externos se ejecutan con `check=True`; un fallo
 no queda oculto tras el éxito de una instrucción posterior. No se usan wrappers de
@@ -130,11 +130,11 @@ La comprobación SSH de 0.9.0 acredita carga de esa versión, no de este candida
   contenedor local `custom-fakelag-validation:local`, sin red ni gameservers:
   `make build-exts-linux test-exts-linux test-ci`. Dieciocho pruebas Python,
   servicio/codec x86 y cadena SourceHook con objeto sintético correctos.
-- `python3 scripts/run-native-tests.py --platform linux --sanitize`: ASan/UBSan
+- `make test-native-sanitized`: ASan/UBSan
   del servicio/codec en host x64, correcto. No prueba la VM ni el ABI del juego.
-- `make package-smx package-exts-linux release-linux validate-artifact`: correcto
+- `make package-smx package-exts-linux release-linux validate-artifact-linux`: correcto
   en el contenedor; ZIP combinado local en `dist/release/l4d2-speedwatch-local-linux.zip`.
-- `actionlint .github/workflows/sourcemod-build.yml` y `git diff --check`: correctos.
+- `make check-ci` y `git diff --check`: correctos.
 - Sin compilación Windows, publicación, despliegue ni aceptación SRCDS de 0.10.0.
 
 ### Mejoras de debug del mismo candidato
@@ -165,5 +165,5 @@ SourcePawn de producción adaptadas a C++ y comprueba:
 
 Veintiuna pruebas Python correctas; producción y tres consumidores de API compilan
 con SourcePawn 1.12.0.7255 y warnings tratados como errores. Es regresión aislada,
-no replay de tráfico dentro del motor: quedan pendientes el retest de este fix en
-comp-dev y la calibración con tráfico legítimo. No se despliega desde esta tarea.
+no replay de tráfico dentro del motor: quedan pendientes el retest de esta
+corrección en SRCDS y la calibración con tráfico legítimo.

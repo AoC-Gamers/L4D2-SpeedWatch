@@ -4,3 +4,8 @@
 /tmp/
 __pycache__/
 /.deps/
+
+/.env
+/.env.secret
+/.scannerwork/
+/.coverage*

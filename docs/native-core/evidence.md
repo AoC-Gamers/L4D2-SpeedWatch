@@ -16,7 +16,7 @@ no se atribuyen a ese informe mediciones ni resultados de esta implementación.
 - [DT_TerrorPlayer](https://netprops.l4d2node.org/class/DT_TerrorPlayer)
 
 Los commits de dependencias están fijados en `dependencies.lock.json` y el paquete
-SourcePawn está fijado por URL y SHA256 en `sourcepawn-package.lock.json`. Cada
+SourcePawn está fijado por URL y SHA256 en `scripts/deps/sourcepawn-package.lock.json`. Cada
 artefacto registra resoluciones, compilador, SHA de proyecto e inputs de build.
 La decompilación pública corresponde a un módulo Linux; sus direcciones son
 referencias de navegación, no offsets o firmas que se instalen en la extensión.

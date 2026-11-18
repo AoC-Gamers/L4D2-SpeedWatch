@@ -5,6 +5,8 @@ on:
     branches:
       - main
       - develop
+    tags:
+      - "v*"
   pull_request:
     paths:
       - .github/workflows/sourcemod-build.yml
@@ -15,7 +17,7 @@ on:
       - configure.py
       - '*lock.json'
       - extension/**
-      - plugin-package-map.json
+      - scripts/package/package-map.json
       - scripts/**
       - tests/**
       - addons/sourcemod/**
@@ -26,7 +28,7 @@ on:
 
 concurrency:
   group: sourcemod-build-${{ github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -57,7 +59,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=smx-deps-${{ runner.os }}-${{ hashFiles('sourcepawn-package.lock.json', 'scripts/fetch-sourcemod.py') }}" >> "$GITHUB_OUTPUT"
+          echo "key=smx-deps-${{ runner.os }}-${{ hashFiles('scripts/deps/sourcepawn-package.lock.json', 'scripts/deps/fetch-sourcemod.py', 'scripts/deps/sourcepawn_sdk.py') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependency cache
         id: deps-cache-restore
@@ -150,7 +152,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=exts-linux-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+          echo "key=exts-linux-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependency cache
         id: deps-cache-restore
@@ -204,7 +206,7 @@ jobs:
 
       - name: Run isolated service sanitizers (host architecture)
         shell: bash
-        run: python scripts/run-native-tests.py --platform linux --sanitize
+        run: make test-native-sanitized PYTHON=python
 
       - name: Build Linux extension package
         shell: bash
@@ -240,7 +242,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=exts-windows-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+          echo "key=exts-windows-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependency cache
         id: deps-cache-restore
@@ -284,7 +286,7 @@ jobs:
 
       - name: Initialize MSVC x86 environment
         shell: pwsh
-        run: python scripts/setup-msvc.py
+        run: make setup-msvc PYTHON=python
 
       - name: Run Windows regression tests
         shell: pwsh
@@ -348,30 +350,10 @@ jobs:
           name: exts-build-linux
           path: .build/exts-linux
 
-      - name: Resolve Linux artifact metadata
+      - name: Resolve linux artifact metadata
         id: meta
         shell: bash
-        run: |
-          case "${GITHUB_REF_NAME}" in
-            main)
-              echo "basename=l4d2-speedwatch-linux-latest" >> "$GITHUB_OUTPUT"
-              echo "release_tag=channel/latest" >> "$GITHUB_OUTPUT"
-              echo "release_name=Latest" >> "$GITHUB_OUTPUT"
-              echo "prerelease=false" >> "$GITHUB_OUTPUT"
-              ;;
-            develop)
-              echo "basename=l4d2-speedwatch-linux-develop" >> "$GITHUB_OUTPUT"
-              echo "release_tag=channel/develop" >> "$GITHUB_OUTPUT"
-              echo "release_name=Develop" >> "$GITHUB_OUTPUT"
-              echo "prerelease=true" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "basename=l4d2-speedwatch-linux-pr-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-              echo "release_tag=" >> "$GITHUB_OUTPUT"
-              echo "release_name=" >> "$GITHUB_OUTPUT"
-              echo "prerelease=false" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
+        run: make release-identity RELEASE_PLATFORM=linux PYTHON=python
 
       - name: Package Linux trees
         shell: bash
@@ -379,7 +361,7 @@ jobs:
 
       - name: Build Linux release archive
         shell: bash
-        run: make release-linux validate-artifact PLATFORM=linux PYTHON=python LINUX_RELEASE_BASENAME="${{ steps.meta.outputs.basename }}"
+        run: make release-linux validate-artifact-linux PYTHON=python LINUX_RELEASE_BASENAME="${{ steps.meta.outputs.basename }}"
 
       - name: Upload Linux release artifact
         uses: actions/upload-artifact@v7
@@ -423,21 +405,10 @@ jobs:
           name: exts-build-windows
           path: .build/exts-windows
 
-      - name: Resolve Windows artifact metadata
+      - name: Resolve windows artifact metadata
         id: meta
         shell: bash
-        run: |
-          case "${GITHUB_REF_NAME}" in
-            main)
-              echo "basename=l4d2-speedwatch-windows-latest" >> "$GITHUB_OUTPUT"
-              ;;
-            develop)
-              echo "basename=l4d2-speedwatch-windows-develop" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "basename=l4d2-speedwatch-windows-pr-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
-              ;;
-          esac
+        run: make release-identity RELEASE_PLATFORM=windows PYTHON=python
 
       - name: Package Windows trees
         shell: pwsh
@@ -445,7 +416,7 @@ jobs:
 
       - name: Build Windows release archive
         shell: pwsh
-        run: make release-windows validate-artifact PLATFORM=windows PYTHON=python WINDOWS_RELEASE_BASENAME="${{ steps.meta.outputs.basename }}"
+        run: make release-windows validate-artifact-windows PYTHON=python WINDOWS_RELEASE_BASENAME="${{ steps.meta.outputs.basename }}"
 
       - name: Upload Windows release artifact
         uses: actions/upload-artifact@v7
@@ -460,7 +431,7 @@ jobs:
       contents: write
     runs-on: ubuntu-22.04
     needs: [release-linux, release-windows]
-    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop')
+    if: github.event_name != 'pull_request' && (github.ref_name == 'main' || github.ref_name == 'develop' || startsWith(github.ref, 'refs/tags/v'))
 
     steps:
       - name: Checkout repository
@@ -480,36 +451,8 @@ jobs:
           name: ${{ needs.release-windows.outputs.basename }}
           path: dist/release
 
-      - name: Move channel tag
-        shell: bash
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag -f "${{ needs.release-linux.outputs.release-tag }}" "$GITHUB_SHA"
-          git push origin "refs/tags/${{ needs.release-linux.outputs.release-tag }}" --force
-
-      - name: Publish channel release
+      - name: Publish validated release pair
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
-        run: |
-          tag="${{ needs.release-linux.outputs.release-tag }}"
-          title="${{ needs.release-linux.outputs.release-name }}"
-          linux_asset="dist/release/${{ needs.release-linux.outputs.basename }}.zip"
-          windows_asset="dist/release/${{ needs.release-windows.outputs.basename }}.zip"
-
-          if gh release view "$tag" >/dev/null 2>&1; then
-            if [[ "${{ needs.release-linux.outputs.prerelease }}" == "true" ]]; then
-              gh release edit "$tag" --title "$title" --prerelease --latest=false
-            else
-              gh release edit "$tag" --title "$title" --latest=false
-            fi
-          else
-            if [[ "${{ needs.release-linux.outputs.prerelease }}" == "true" ]]; then
-              gh release create "$tag" --title "$title" --prerelease --latest=false --target "$GITHUB_SHA"
-            else
-              gh release create "$tag" --title "$title" --latest=false --target "$GITHUB_SHA"
-            fi
-          fi
-
-          gh release upload "$tag" "$linux_asset" "$windows_asset" --clobber
+        run: make publish-channel PUBLISH=1 PYTHON=python

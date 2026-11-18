@@ -14,7 +14,7 @@ Repositorio: [AoC-Gamers/L4D2-SpeedWatch](https://github.com/AoC-Gamers/L4D2-Spe
 Los paquetes compilados se publican en [Releases](https://github.com/AoC-Gamers/L4D2-SpeedWatch/releases).
 
 La versión 0.10.0 utiliza exclusivamente las ventanas del
-[núcleo nativo](docs/native-core/index.md) para detectar cadencia excesiva de
+[núcleo nativo](docs/native-core/README.md) para detectar cadencia excesiva de
 intentos de `PlayerRunCommand`. No cuenta callbacks SourcePawn ni ofrece fallback
 al detector anterior. Sin core compatible o sin muestras válidas, interrumpe la
 observación. Estos intentos no acreditan ejecución original ni velocidad física.
@@ -26,7 +26,7 @@ cada 30 segundos consecutivos de exceso confirmado, dentro del mismo episodio.
 
 - Evaluación compartida cada segundo, con margen, buffer, gracia y umbral configurables.
 - Alertas para administradores o chat público, con cooldown por jugador.
-- [Contexto diagnóstico L4D2](docs/context.md) en muestras debug y alertas, sin modificar la regla de detección.
+- [Contexto diagnóstico L4D2](docs/context/README.md) en muestras debug y alertas, sin modificar la regla de detección.
 - Registro obligatorio de detecciones y transiciones; debug mediante ConVars y flags.
 - API con client, AccountID, userid y consulta de la última muestra válida.
 - Episodios Active, Recovered e Interrupted para coordinar grabaciones externas.
@@ -35,18 +35,18 @@ cada 30 segundos consecutivos de exceso confirmado, dentro del mismo episodio.
 
 ## Documentación
 
-El punto de entrada es [docs/index.md](docs/index.md).
+El punto de entrada es [docs/README.md](docs/README.md).
 
 | Tema | Guía |
 | --- | --- |
-| Compilar, instalar, configurar ConVars y consultar estado | [Instalación y configuración](docs/installation.md) |
-| Compilación, artefactos, canales y exclusión del test en CI | [Build y CI/CD](docs/build-system.md) |
-| Señal, umbrales, ciclo de observación y coste esperado | [Arquitectura](docs/architecture.md) |
-| Left4DHooks, pause y readyup opcionales | [Integraciones](docs/integrations.md) |
-| Archivo de log, debug y flags | [Logs y debug](docs/logging.md) |
-| Include, biblioteca, native y forward de alertas | [API pública](docs/api.md) |
-| Estados Active, Recovered e Interrupted para un grabador | [Episodios y grabación](docs/recording.md) |
-| Evidencia local y pruebas pendientes en SRCDS | [Validación](docs/testing.md) |
+| Compilar, instalar, configurar ConVars y consultar estado | [Instalación y configuración](docs/installation/README.md) |
+| Compilación, artefactos, canales y exclusión del test en CI | [Build y CI/CD](docs/build/README.md) |
+| Señal, umbrales, ciclo de observación y coste esperado | [Arquitectura](docs/architecture/README.md) |
+| Left4DHooks, pause y readyup opcionales | [Integraciones](docs/integrations/README.md) |
+| Archivo de log, debug y flags | [Logs y debug](docs/logging/README.md) |
+| Include, biblioteca, native y forward de alertas | [API pública](docs/api/README.md) |
+| Estados Active, Recovered e Interrupted para un grabador | [Episodios y grabación](docs/recording/README.md) |
+| Evidencia local y pruebas pendientes en SRCDS | [Validación](docs/testing/README.md) |
 
 ## Validación
 
@@ -58,4 +58,4 @@ consultar [validación nativa](docs/native-core/validation.md).
 
 Licencia: GPL-3.0-or-later; consultar `LICENSE`.
 
-- [Migración nativa y rollback](docs/migration-native.md).
+- [Migración nativa y rollback](docs/migration-native/README.md).

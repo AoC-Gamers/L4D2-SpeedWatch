@@ -1,0 +1,41 @@
+# Documentación de L4D2 SpeedWatch
+
+[README del proyecto](../README.md)
+
+Documentación del plugin L4D2 SpeedWatch 0.12.0. Elegir la guía según el trabajo que se vaya a realizar.
+
+| Guía | Contenido |
+| --- | --- |
+| [Instalación y configuración](installation/README.md) | Requisitos, compilación Linux, archivos de instalación, ConVars, permisos y status |
+| [Build y CI/CD](build/README.md) | Manifiesto, targets, workflow, validación del paquete y canales de releases |
+| [Arquitectura](architecture/README.md) | Alcance de la señal, runtime, mapa y observación, regla de sospecha y coste esperado |
+| [Núcleo nativo del detector](native-core/README.md) | Señal de intentos, API, ventanas, degradación, evidencia ABI y validación |
+| [Participantes y aforos reducidos](participants/README.md) | Elegibilidad individual, espectadores, 1v1/2v2/3v3/4v4 y alcance de las pruebas |
+| [Integraciones opcionales](integrations/README.md) | Contratos y comportamiento de Left4DHooks, pause y readyup; carga tardía y sincronización |
+| [Contexto de L4D2](context/README.md) | Fotografía de movimiento/estado, configuración declarada y correlación con ventanas nativas |
+| [Logs y debug](logging/README.md) | Ruta, ConVars, máscara de flags, registros obligatorios, append, fallos y migración de cfg |
+| [API pública](api/README.md) | Include, biblioteca, identidad, alertas, consulta de muestras y consumidor de diagnóstico |
+| [Episodios y grabación](recording/README.md) | Active, Recovered, Interrupted, recuperación, motivos, callbacks y política del grabador |
+| [Validación](testing/README.md) | Evidencia local y matriz pendiente de SRCDS, API, proveedores, logger y coste de CPU |
+
+## Rutas de lectura
+
+- Para instalar y ajustar el detector: instalación → integraciones → logs → validación.
+- Para integrar otro plugin: API → episodios y grabación → validación.
+- Para modificar el detector: arquitectura → integraciones → API → validación.
+
+Los contratos públicos se declaran en
+`addons/sourcemod/scripting/include/l4d2_speedwatch.inc`. La documentación explica
+su uso; los cambios de firma o estructura requieren revisar y recompilar a sus
+consumidores.
+
+La evidencia de compilación y revisión estática se mantiene separada de las
+pruebas de comportamiento pendientes en SRCDS, centralizadas en la guía de validación.
+
+- [Marcadores de persistencia e integración con Demo](integrations/speedwatch-persistence.md): contrato y coordinación pendiente de presentación.
+
+- [Migración nativa y rollback](migration-native/README.md).
+- [Criterios de configuración](configuration/README.md).
+
+- [Inventario de dependencias](build/dependencies.md), [CI y canales](build/ci.md) y [análisis local](build/sonar.md).
+- [Pruebas y límites](../tests/README.md).
