@@ -41,4 +41,3 @@ class CoverageDependencyTests(unittest.TestCase):
             builder.reset_mock()
             module.main(root)
             builder.assert_not_called()
-
