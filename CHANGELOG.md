@@ -4,6 +4,9 @@
 
 ### Cierre de revisión del build
 
+- Rutas relativas del paquete compatibles con Windows, conservando el rechazo
+  de raíces, unidades, UNC, traversal y enlaces.
+
 - Verificación recursiva de submódulos del SDK: revisiones fijadas y archivos
   adicionales, incluidos headers ignorados a varios niveles de profundidad.
 - Pruebas del proveedor de cobertura fuera de CI, junto al resto de tooling local.

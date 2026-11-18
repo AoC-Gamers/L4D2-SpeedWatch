@@ -122,8 +122,8 @@ def unique_case(paths):
 
 
 def safe_path(root, relative):
-    text=str(relative)
-    if relative.is_absolute() or ".." in relative.parts or "\\" in text or re.match(r"^[A-Za-z]:", text):
+    text=relative.as_posix()
+    if relative.anchor or ".." in relative.parts or "\\" in text or re.match(r"^[A-Za-z]:", text):
         raise ValueError("Unsafe artifact path")
     current=root
     for part in relative.parts:
