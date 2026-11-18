@@ -7,6 +7,8 @@ import shutil
 from pathlib import Path
 from artifact_contract import clean_output, load_manifest, plugin_paths, selected_files, validate_artifact, sourcepawn_inputs, native_source_hashes, tree_files, validate_basename
 from native_binary import validate_binary
+from installer_docs import installer_docs, stage_docs, verify_docs
+from release_receipt import receipt_path, read_receipt, validate_zip
 
 BUILD_INFO = 'build-info.json'
 COMPILE_LOG = 'compile.log'
@@ -22,28 +24,39 @@ def exact_files(tree,expected):
         if not (tree/p).stat().st_size: raise ValueError(f'Empty file: {p}')
 def native_metadata(root, tree, platform):
     info=json.loads((tree/BUILD_INFO).read_text())
+    return validate_native_info(root,tree,platform,info)
+def validate_native_info(root,tree,platform,info):
     if info['platform']!=platform or info['architecture']!='x86': raise ValueError('Platform/architecture mismatch')
     if info['binary_sha256']!=digest(tree/binary_path(platform)): raise ValueError('Native binary hash mismatch')
     if info['sources']!=native_source_hashes(root): raise ValueError('Native binary is stale relative to sources')
-    if info['dependencies']!=json.loads((root/'dependencies.lock.json').read_text()): raise ValueError('Dependency lock mismatch')
+    if info['dependencies']!=json.loads((root/'scripts/deps/dependencies.lock.json').read_text()): raise ValueError('Dependency lock mismatch')
     validate_binary(tree/binary_path(platform),platform)
     return info
-def validate(root,tree,platform):
+def validate_tree(root,tree,platform,receipt):
     manifest=load_manifest(root)
-    expected=set(plugin_paths(manifest))|selected_files(root,manifest['artifact'])|{binary_path(platform),Path('LICENSE'),Path(BUILD_INFO),Path('sourcepawn-build-info.json')}
+    docs = installer_docs(root, platform + ' x86', receipt['project_sha'])
+    expected=set(plugin_paths(manifest))|selected_files(root,manifest['artifact'])|{binary_path(platform)}|docs.keys()
     exact_files(tree,expected)
-    info=native_metadata(root,tree,platform)
-    smx_info=json.loads((tree/'sourcepawn-build-info.json').read_text())
+    validate_native_info(root,tree,platform,receipt['native_build'])
+    smx_info=receipt['sourcepawn_build']
+    verify_docs(tree, docs)
     if smx_info['inputs']!=sourcepawn_inputs(root): raise ValueError('SourcePawn build is stale')
     for relative,expected_hash in smx_info['binaries'].items():
         if digest(tree/relative)!=expected_hash: raise ValueError('SourcePawn binary hash mismatch')
-    for relative,expected_hash in info['runtime_files'].items():
+    for relative,expected_hash in receipt['runtime_files'].items():
         if digest(tree/relative)!=expected_hash: raise ValueError('Runtime file hash mismatch: '+relative)
     for relative in selected_files(root,manifest['artifact']):
         if digest(tree/relative)!=digest(root/relative): raise ValueError('Stale source payload: '+str(relative))
-    if set(info['runtime_files']) != {str(p).replace('\\','/') for p in expected if p!=Path(BUILD_INFO)}: raise ValueError('Incomplete runtime hashes')
+    if set(receipt['runtime_files']) != {str(p).replace('\\','/') for p in expected}: raise ValueError('Incomplete runtime hashes')
     for relative in plugin_paths(manifest):
         if (tree/relative).read_bytes()[:4] != b'FFPS': raise ValueError('Invalid SourcePawn binary')
+def validate(root,tree,platform):
+    receipt=read_receipt(receipt_path(root,platform))
+    validate_tree(root,tree,platform,receipt)
+    archive=root/'dist/release'/receipt['archive_name']
+    validate_basename(archive.stem)
+    validate_zip(archive,receipt,platform,receipt['native_build'].get('project_sha'),root)
+
 def stage(root,build,out,platform):
     if out==build or out in build.parents or build in out.parents:
         raise ValueError('Build and staging trees must be separate')
@@ -75,26 +88,22 @@ def release(root,smx,extension,out,platform,basename):
     clean_output(root,out)
     shutil.copytree(smx,out,dirs_exist_ok=True)
     shutil.copytree(extension,out,dirs_exist_ok=True)
-    # Full command output and local compiler paths remain in build/CI evidence,
-    # never in the installable payload. Public metadata retains hashes/versions.
-    for name in (COMPILE_LOG,NATIVE_COMPILE_LOG):
+    smx_info=json.loads((out/'sourcepawn-build-info.json').read_text())
+    for name in (COMPILE_LOG,NATIVE_COMPILE_LOG,BUILD_INFO,'sourcepawn-build-info.json'):
         (out/name).unlink()
-    info.pop('compiler_environment',None)
-    if 'compiler' in info:info['compiler']=info['compiler'].splitlines()[0]
-    info.pop('sourcepawn_compiler_log',None)
-    info['runtime_files']={str(p.relative_to(out)).replace('\\','/'):digest(p) for p in out.rglob('*') if p.is_file() and p.name!=BUILD_INFO}
-    (out/BUILD_INFO).write_text(json.dumps(info,indent=2)+'\n')
-    validate(root,out,platform)
+    stage_docs(out, installer_docs(root, platform + ' x86', info.get('project_sha')))
+    receipt={'schema':1,'platform':platform,'architecture':'x86',
+             'project_sha':info.get('project_sha'),'native_build':info,'sourcepawn_build':smx_info,
+             'runtime_files':{p.as_posix():digest(out/p) for p in tree_files(out)}}
+    validate_tree(root,out,platform,receipt)
     destination=root/'dist/release';destination.mkdir(parents=True,exist_ok=True)
     archive=shutil.make_archive(str(destination/basename),'zip',root_dir=out)
-    import zipfile
-    with zipfile.ZipFile(archive) as packaged:
-        names=packaged.namelist()
-        files=[name for name in names if not name.endswith('/')]
-        expected=tree_files(out)
-        if len(names)!=len(set(names)) or set(files)!={p.as_posix() for p in expected}: raise ValueError('ZIP content mismatch')
-        for relative in expected:
-            if hashlib.sha256(packaged.read(relative.as_posix())).hexdigest()!=digest(out/relative):raise ValueError('ZIP hash mismatch')
+    archive=Path(archive)
+    receipt.update(archive_name=archive.name,archive_sha256=digest(archive))
+    validate_zip(archive,receipt,platform,receipt['project_sha'],root)
+    evidence=receipt_path(root,platform)
+    evidence.parent.mkdir(parents=True,exist_ok=True)
+    evidence.write_text(json.dumps(receipt,indent=2)+'\n')
     print(archive)
 if __name__=='__main__':
     p=argparse.ArgumentParser();p.add_argument('action',choices=['stage','release','validate']);p.add_argument('--platform',choices=['linux','windows'],required=True)

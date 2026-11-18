@@ -11,6 +11,11 @@
       ]
     }
   },
+  "documentation": [
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md"
+  ],
   "artifact": {
     "addons": {
       "sourcemod": {

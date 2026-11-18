@@ -18,7 +18,7 @@ class ProductionPipelineTests(unittest.TestCase):
         self.root = Path(self.directory.name)
         for name in ("addons", "docs", "tests/diagnostics", "scripts/package", "scripts/deps"):
             shutil.copytree(ROOT / name, self.root / name)
-        for name in ("README.md", "LICENSE", "scripts/package/package-map.json"):
+        for name in ("README.md", "LICENSE", "CHANGELOG.md"):
             shutil.copy2(ROOT / name, self.root / name)
         # A compiler spy fails if the relocated diagnostic entrypoint is selected.
         (self.root / "tests/diagnostics/l4d2_speedwatch_test.sp").write_text("invalid test source\n")
@@ -76,15 +76,25 @@ print('compiler spy completed')
             self.assertIsNone(archive.testzip())
             self.assertEqual([p for p in files if p.endswith(".smx")],
                              ["addons/sourcemod/plugins/l4d2_speedwatch.smx"])
-            for name in ("LICENSE", "compile.log",
-                         "addons/sourcemod/scripting/l4d2_speedwatch/logging.sp",
-                         "addons/sourcemod/scripting/l4d2_speedwatch/integrations.sp",
-                         "addons/sourcemod/scripting/l4d2_speedwatch/observation.sp",
+            for name in ("LICENSE", "CHANGELOG.md",
                          "addons/sourcemod/scripting/include/l4d2_speedwatch.inc",
                          "addons/sourcemod/translations/l4d2_speedwatch.phrases.txt"):
                 self.assertIn(name, files)
             self.assertFalse(any("speedwatch_test" in p for p in files))
-            self.assertNotIn("README.md", files)
+            self.assertIn("README.md", files)
+            self.assertEqual(archive.read("CHANGELOG.md"), (ROOT / "CHANGELOG.md").read_bytes())
+            self.assertEqual(archive.read("LICENSE"), (ROOT / "LICENSE").read_bytes())
+            self.assertFalse(any(name.startswith("LICENSES/") for name in files))
+            self.assertNotIn("RELEASE-NOTES.md", files)
+            self.assertNotIn("package-map.json", files)
+            scripting = ROOT / "addons/sourcemod/scripting"
+            sources = [scripting / "l4d2_speedwatch.sp", *(scripting / "l4d2_speedwatch").glob("*.sp")]
+            self.assertEqual({name for name in files if name.endswith(".sp")},
+                             {path.relative_to(ROOT).as_posix() for path in sources})
+            for source in sources:
+                self.assertEqual(archive.read(source.relative_to(ROOT).as_posix()), source.read_bytes())
+            self.assertNotIn("compile.log", files)
+            self.assertNotIn("sourcepawn-build-info.json", files)
             self.assertFalse(any(p.startswith("docs/") for p in files))
 
     def test_release_rejects_documentation_in_artifact(self):

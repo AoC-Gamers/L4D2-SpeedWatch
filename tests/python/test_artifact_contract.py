@@ -9,7 +9,7 @@ class ArtifactContractTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             root=Path(tmp);p=root/'scripts/package/package-map.json';p.parent.mkdir(parents=True)
             for build in [{'plugins':{'root':['../escape']},'extensions':{}},{'plugins':{'root':['safe']},'extensions':{},'ignored':{}}]:
-                p.write_text(json.dumps({'build':build,'artifact':{}}))
+                p.write_text(json.dumps({'build':build,'artifact':{},'documentation':['README.md','LICENSE','CHANGELOG.md']}))
                 with self.assertRaises(ValueError):contract.load_manifest(root)
     def test_artifact_traversal_absolute_and_case_collisions(self):
         with tempfile.TemporaryDirectory() as tmp:

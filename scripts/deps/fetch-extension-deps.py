@@ -35,7 +35,7 @@ def main(root=ROOT):
     p.add_argument('--destination')
     a = p.parse_args()
     dest = Path(a.destination or root / '.deps' / ('exts-' + a.platform)).resolve()
-    lock = json.loads((root / 'dependencies.lock.json').read_text())
+    lock = json.loads((root / 'scripts/deps/dependencies.lock.json').read_text())
     with concurrent.futures.ThreadPoolExecutor(max_workers=4) as executor:
         list(executor.map(lambda item: fetch(item, dest), lock.items()))
     venv = dest / 'venv'

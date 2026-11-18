@@ -83,7 +83,8 @@ class NativeSdkTests(unittest.TestCase):
             git('init','-q');(sdk/'tracked.h').write_text('pinned');(sdk/'.gitignore').write_text('ignored.h\n')
             git('add','.');git('-c','user.name=SDK Test','-c','user.email=test@example.invalid','commit','-qm','fixture')
             lock={'hl2sdk-l4d2':{'revision':git('rev-parse','HEAD')}}
-            (root/'dependencies.lock.json').write_text(json.dumps(lock))
+            (root/'scripts/deps/dependencies.lock.json').parent.mkdir(parents=True,exist_ok=True)
+            (root/'scripts/deps/dependencies.lock.json').write_text(json.dumps(lock))
             verify=lambda:driver.verify_dependencies(root,deps,deps/'python',deps/'ambuild')
             verify()
             for name in ('new.h','ignored.h','tracked.h'):
@@ -123,7 +124,8 @@ class NativeSdkTests(unittest.TestCase):
         git(sdk,'-c','protocol.file.allow=always','submodule','update','--init','--recursive')
         for name in ('hl2sdk-l4d2','mmsource-1.12'):(deps/name).mkdir()
         for name in ('python','ambuild'):(deps/name).touch()
-        (base/'dependencies.lock.json').write_text(json.dumps({'sourcemod-1.12':{'revision':git(sdk,'rev-parse','HEAD')}}))
+        (base/'scripts/deps/dependencies.lock.json').parent.mkdir(parents=True,exist_ok=True)
+        (base/'scripts/deps/dependencies.lock.json').write_text(json.dumps({'sourcemod-1.12':{'revision':git(sdk,'rev-parse','HEAD')}}))
         return deps,sdk,git
 
     def test_submodule_headers_are_checked_at_every_depth(self):

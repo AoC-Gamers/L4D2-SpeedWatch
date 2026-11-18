@@ -10,8 +10,13 @@ from pathlib import Path
 
 def load_manifest(root: Path) -> dict:
     manifest = json.loads((root / "scripts/package/package-map.json").read_text(encoding="utf-8"))
-    if set(manifest) != {"build", "artifact"} or set(manifest["build"]) != {"plugins", "extensions"}:
+    if set(manifest) != {"build", "artifact", "documentation"} or set(manifest["build"]) != {"plugins", "extensions"}:
         raise ValueError("Unknown or missing package-map keys")
+    documentation = manifest["documentation"]
+    if (not isinstance(documentation, list) or len(documentation) != 3
+            or any(not isinstance(name, str) for name in documentation)
+            or set(documentation) != {"README.md", "LICENSE", "CHANGELOG.md"}):
+        raise ValueError("Invalid package-map documentation")
     for family in manifest["build"].values():
         if not isinstance(family, dict): raise ValueError("Invalid component family")
         for bucket, names in family.items():
@@ -111,7 +116,7 @@ def sourcepawn_inputs(root: Path) -> dict[str, str]:
 
 def native_source_hashes(root: Path) -> dict[str, str]:
     files = [p for p in (root / "extension").rglob("*") if p.is_file()]
-    files += [root / p for p in ("AMBuildScript", "configure.py", "PackageScript", "dependencies.lock.json")]
+    files += [root / p for p in ("AMBuildScript", "configure.py", "PackageScript", "scripts/deps/dependencies.lock.json")]
     files += [root/"scripts/package/package-map.json", *sorted((root/"scripts/build").glob("*.py"))]
     return {str(p.relative_to(root)).replace("\\", "/"): hashlib.sha256(p.read_bytes()).hexdigest() for p in sorted(files)}
 

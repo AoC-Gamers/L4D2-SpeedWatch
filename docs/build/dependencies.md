@@ -5,7 +5,7 @@
 | Entrada | Fuente de verdad | Rol | Distribución |
 | --- | --- | --- | --- |
 | SourceMod Linux 1.12.0.7255 | `scripts/deps/sourcepawn-package.lock.json`: URL y SHA-256 | Compilador/headers de SourcePawn | Externa |
-| HL2SDK L4D2, SourceMod, Metamod, AMBuild | `dependencies.lock.json`: commits completos | Build y pruebas nativas x86 | Externa |
+| HL2SDK L4D2, SourceMod, Metamod, AMBuild | `scripts/deps/dependencies.lock.json`: commits completos | Build y pruebas nativas x86 | Externa |
 | Includes Left4DHooks, pause y readyup | Fuentes vendorizadas, API/licencia de sus proveedores | Compilación; sus proveedores tienen contrato runtime propio | No se empaquetan |
 | Include SpeedWatch y core | `addons/sourcemod/scripting/include/` | API propia pública y nativa v2 | Incluidos |
 | Coverage.py 7.13.5 | `scripts/deps/fetch-test-coverage.py` | Cobertura local Python | Externa, `.deps/test-coverage` |

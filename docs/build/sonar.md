@@ -23,6 +23,12 @@ CXX debe conservar el valor `false`; no se relaja el parser. Token por entorno `
 `.env.secret` ignorado con permisos 600 (plantilla `.env.secret.example`); no ponerlo en `.env`, argumentos o commits.
 Solo HTTP de loopback es admisible. La configuración se lee como datos, no shell.
 
+| Variable opcional | Valor al omitirla | Targets |
+| --- | --- | --- |
+| `SONAR_COMPILE_COMMANDS` | `.build/exts-linux/compile_commands.json` en el build predeterminado | `sonar`, `sonar-cppcheck` |
+| `SONAR_CPPCHECK` | `cppcheck` en PATH | `sonar`, `sonar-cppcheck` |
+| `SONAR_SCANNER` | `sonar-scanner` en PATH | `sonar` |
+
 ```sh
 make build-exts-linux
 make sonar-cppcheck
@@ -74,9 +80,9 @@ Sonar, sus pruebas de tooling y los ejecutores de cobertura quedan fuera de
 
 ## Validación local de cobertura
 
-Se realizaron pruebas locales con 59 regresiones de producto/pipeline y 31 de
-tooling. Sonar midió 85,0 % global sobre 1.287 líneas ejecutables, con cero
-hallazgos abiertos y quality gate aprobado. Python registró 981/1.042 líneas;
+Se realizaron pruebas locales con 63 regresiones de producto/pipeline y 31 de
+tooling. Sonar midió 85,2 % global sobre 1.334 líneas ejecutables, con cero
+hallazgos abiertos y quality gate aprobado. Python registró 1.023/1.089 líneas;
 el informe nativo x86, 113/245. Se conservaron umbrales, exclusiones y líneas
 no ejecutadas. La mejora global no implica un 80 % de cobertura nativa ni
 acredita comportamiento en SRCDS o una compilación Windows.

@@ -162,8 +162,10 @@ SourcePawn por comando; no hay ahorro de CPU demostrado sin medición comparable
 
 ## Instalación y rollback
 
-Usar el ZIP de la plataforma x86 correcta: SMX, extensión `.so` o `.dll`, fuentes
-permitidas, ambos includes públicos, traducciones, licencia, logs y build-info.
+El ZIP de la plataforma x86 incluye el SMX, la extensión `.so` o `.dll`, las
+fuentes SourcePawn de producción, ambos includes públicos, traducciones, la guía
+de instalación, notas y textos legales.
+Los logs y `build-info` permanecen fuera del ZIP, en las salidas de build/CI.
 Requiere SourceMod/Metamod compatibles con L4D2 y sus gamedata `sdktools.games`.
 No se distribuyen SDKs ni librerías del juego. Se reutiliza el offset por nombre
 de SDKTools; no se añade un archivo de gamedata con offsets sin evidencia propia.

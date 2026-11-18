@@ -9,10 +9,10 @@ metadatos del SMX con `pause`, `readyup` y `left4dhooks` marcados `required=0` e
 de natives opcionales exportados. API y consumidores opcional/obligatorio compilados con `-E`;
 contrato de dependencia e imports/exports verificados en los metadatos SMX.
 La división en diez módulos privados compila con el mismo compilador y `-E`.
-Se comprueba que el ZIP contiene los diez módulos vigentes
-y un único SMX de producción, excluye el test, los includes de terceros y la
-documentación (`docs/` y `README.md`). La licencia se conserva; los logs completos
-permanecen en las salidas locales/CI y se excluyen del ZIP instalable.
+El ZIP incluye el SMX, los once archivos SourcePawn de producción, los includes
+públicos, las traducciones y la extensión de la plataforma. Incluye también la
+guía breve, notas y textos legales. Los diagnósticos, includes de terceros, logs
+y metadatos de build quedan fuera del ZIP.
 La recompilación completa usa las fuentes e includes del checkout junto con el SDK.
 Revisión estática: callbacks de biblioteca pasivos, ausencia
 de un callback SourcePawn por comando y registro de alertas sin
@@ -223,7 +223,7 @@ SMX y tres variantes de consumidores compilados sin advertencias; extensión ELF
 Linux, servicio/codec x86 y SourceHook PASS. Servicio/codec x64 bajo ASan/UBSan
 PASS. BanSystem Demo compila sin advertencias con su include público sin cambios
 y pasa `check-lilac-observations.py`, incluidos los marcadores de persistencia.
-ZIP Linux validado, sin módulos retirados, harnesses ni documentos; actionlint,
+ZIP Linux validado, sin módulos retirados, harnesses ni documentación técnica; actionlint,
 enlaces locales y `git diff --check` PASS. No se ejecutaron MSVC ni SRCDS.
 
 ## Contexto diagnóstico y cola FIFO

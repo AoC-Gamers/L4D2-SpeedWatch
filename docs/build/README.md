@@ -60,11 +60,12 @@ commit nativo es null, nunca un SHA inventado o heredado de otro repositorio.
 | Árbol | Contenido |
 | --- | --- |
 | `.deps/smx`, `.deps/exts-linux`, `.deps/exts-windows` | Dependencias externas |
-| `.build/smx` | SMX, fuentes propias seleccionadas y procedencia |
+| `.build/smx` | SMX, recursos declarados y procedencia |
 | `.build/exts-<so>` | AMBuild, objetos, package, log y compile_commands.json |
 | `.build/package-smx`, `.build/package-exts-<so>` | Stagings separados |
 | `dist/linux/artifact`, `dist/windows/artifact` | Composición validada por SO |
 | `dist/release` | ZIP local |
+| `.build/release-receipts/<so>.json` | Procedencia, inventario y hashes del ZIP; fuera del instalador |
 | `tests/diagnostics` | Consumidores de prueba SourcePawn, nunca instalables |
 
 El paquete mixto usa una composición única por plataforma. No permitir copias
@@ -75,11 +76,17 @@ solo sus árboles nativos gestionados y preservan los resultados SMX compartidos
 
 `scripts/package/package-map.json` es el único mapa, leído por el contrato común
 `artifact_contract.py`, builders, staging y tests. No queda una copia en raíz.
-Los diez módulos del plugin y la extensión propia se declaran explícitamente.
-Se conserva la selección de fuentes propias y API del paquete de SpeedWatch;
-SDK, includes externos, harnesses, informes, cachés y documentos se excluyen.
-Los logs completos se conservan en los árboles de build/CI; no se copian al ZIP
-instalable. Su metadata pública conserva versiones y hashes sin el entorno local.
+El ZIP incluye los binarios, el entrypoint y los módulos SourcePawn de
+producción, los includes públicos propios y las traducciones. La sección
+`documentation` del mapa declara los archivos de la raíz del ZIP: el
+`README.md` de instalación, `LICENSE` y `CHANGELOG.md`. El archivo `LICENSE`
+reúne la licencia del proyecto y los [avisos de terceros](licenses.md).
+El mapa, el código C++, los SDK, includes externos, harnesses, cachés y
+documentación técnica se mantienen en el repositorio. Los logs y archivos
+`build-info.json` y `sourcepawn-build-info.json` quedan en las salidas de build/CI.
+La procedencia y hashes se guardan en un recibo separado por plataforma, bajo
+`.build/release-receipts/`. La validación requiere ese recibo y comprueba también
+el hash del ZIP; no se sustituye por metadatos declarados dentro del instalador.
 
 Se rechazan faltantes, extras, symlinks, archivos especiales, traversal, colisiones
 por mayúsculas, claves ignoradas y basenames inseguros. Se verifican arquitectura,

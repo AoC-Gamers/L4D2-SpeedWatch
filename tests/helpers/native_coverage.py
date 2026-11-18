@@ -19,7 +19,7 @@ def source_state(root):
     for area in ("extension", "scripts", "tests", "addons"):
         paths += [p for p in (root / area).rglob("*") if p.is_file()
                   and "__pycache__" not in p.parts and p.suffix != ".pyc"]
-    paths += [root / p for p in ("Makefile", "configure.py", "AMBuildScript", "PackageScript", "dependencies.lock.json", "scripts/deps/sourcepawn-package.lock.json", ".env.example", ".env.secret.example")
+    paths += [root / p for p in ("Makefile", "configure.py", "AMBuildScript", "PackageScript", "scripts/deps/dependencies.lock.json", "scripts/deps/sourcepawn-package.lock.json", ".env.example", ".env.secret.example")
               if (root / p).is_file()]
     return {p.relative_to(root).as_posix(): digest(p) for p in sorted(paths)}
 

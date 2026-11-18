@@ -96,7 +96,8 @@ class CommandContracts(unittest.TestCase):
     def test_extension_dependencies_record_lock_and_isolate_platform_venv(self):
         module = command('scripts/deps/fetch-extension-deps.py')
         lock = {'ambuild':{'repository':'example/ambuild', 'revision':'a'*40}}
-        (self.root/'dependencies.lock.json').write_text(json.dumps(lock))
+        (self.root/'scripts/deps/dependencies.lock.json').parent.mkdir(parents=True,exist_ok=True)
+        (self.root/'scripts/deps/dependencies.lock.json').write_text(json.dumps(lock))
         for platform in ('linux','windows'):
             dest = self.root/platform
             dest.mkdir()
@@ -125,7 +126,7 @@ class CommandContracts(unittest.TestCase):
     def test_clean_preserves_shared_and_other_platform_and_rejects_symlink(self):
         module = command('scripts/tools/clean-platform.py')
         # The command's default root is bypassed only for this isolated checkout.
-        for path in ('.build/exts-linux/file','.build/exts-windows/file','.build/smx/file','dist/linux/artifact/file'):
+        for path in ('.build/exts-linux/file','.build/exts-windows/file','.build/smx/file','dist/linux/artifact/file','.build/release-receipts/linux.json','.build/release-receipts/windows.json'):
             target = self.root/path
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_text('keep')
@@ -134,6 +135,8 @@ class CommandContracts(unittest.TestCase):
         self.assertFalse((self.root/'dist/linux/artifact').exists())
         self.assertTrue((self.root/'.build/exts-windows/file').is_file())
         self.assertTrue((self.root/'.build/smx/file').is_file())
+        self.assertFalse((self.root/'.build/release-receipts/linux.json').exists())
+        self.assertTrue((self.root/'.build/release-receipts/windows.json').is_file())
         (self.root/'.build/exts-linux').symlink_to(self.root/'.build/smx', target_is_directory=True)
         with self.assertRaisesRegex(ValueError, 'symlink'):
             self.invoke(module, 'linux')
@@ -189,7 +192,8 @@ class CommandContracts(unittest.TestCase):
         subprocess.run([compiler,'-m32','-nostdlib','-shared','-x','c','-','-o',str(fixture)],
                        input='void GetSMExtAPI(void) {}\nvoid CreateInterface_MMS(void) {}\n',text=True,check=True,capture_output=True)
         lock = {'sdk':{'revision':'a'*40}}
-        (self.root/'dependencies.lock.json').write_text(json.dumps(lock))
+        (self.root/'scripts/deps/dependencies.lock.json').parent.mkdir(parents=True,exist_ok=True)
+        (self.root/'scripts/deps/dependencies.lock.json').write_text(json.dumps(lock))
         (self.root/'extension').mkdir()
         (self.root/'extension/unit.cpp').write_text('int fixture;')
         for name in ('AMBuildScript','configure.py','PackageScript'):

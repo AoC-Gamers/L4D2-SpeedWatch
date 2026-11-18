@@ -6,6 +6,8 @@ __pycache__/
 /.deps/
 
 /.env
-/.env.secret
+/.env.*
+!/.env.example
+!/.env.secret.example
 /.scannerwork/
 /.coverage*

@@ -17,9 +17,9 @@ from artifact_contract import sourcepawn_inputs
 class NativePipelineTests(unittest.TestCase):
     def setUp(self):
         self.temp=tempfile.TemporaryDirectory();self.addCleanup(self.temp.cleanup);self.root=Path(self.temp.name)
-        for name in ('scripts','addons','extension'):
+        for name in ('scripts','addons','extension','docs'):
             shutil.copytree(ROOT/name,self.root/name,ignore=shutil.ignore_patterns('__pycache__'))
-        for name in ('scripts/package/package-map.json','dependencies.lock.json','AMBuildScript','configure.py','PackageScript','LICENSE'):
+        for name in ('scripts/package/package-map.json','scripts/deps/dependencies.lock.json','AMBuildScript','configure.py','PackageScript','LICENSE','CHANGELOG.md'):
             shutil.copy2(ROOT/name,self.root/name)
         self.smx=self.root/'.build/smx';self.smx.mkdir(parents=True)
         from artifact_contract import load_manifest,selected_files,copy_files
@@ -34,7 +34,7 @@ class NativePipelineTests(unittest.TestCase):
         if not compiler: self.skipTest('C compiler required for ELF fixture')
         source=self.root/'fixture.c';source.write_text('void GetSMExtAPI(void) {}\nvoid CreateInterface_MMS(void) {}\n')
         subprocess.run([compiler,'-m32','-nostdlib','-shared',str(source),'-o',str(self.bin)],check=True,capture_output=True)
-        info={'platform':'linux','architecture':'x86','binary_sha256':package.digest(self.bin),'dependencies':json.loads((self.root/'dependencies.lock.json').read_text()),
+        info={'platform':'linux','architecture':'x86','project_sha':'a'*40,'binary_sha256':package.digest(self.bin),'dependencies':json.loads((self.root/'scripts/deps/dependencies.lock.json').read_text()),
               'sources':package.native_source_hashes(self.root)}
         (self.build/'build-info.json').write_text(json.dumps(info));(self.build/'compile.log').write_text('ELF fixture, not SDK build\n')
         self.stage=self.root/'.build/package-exts-linux';self.out=self.root/'dist/linux/artifact'
@@ -46,8 +46,32 @@ class NativePipelineTests(unittest.TestCase):
         self.assertFalse((self.root/'.deps').exists())
         self.assertFalse((self.out/'compile.log').exists())
         self.assertFalse((self.out/'native-compile.log').exists())
+        self.assertFalse((self.out/'build-info.json').exists())
+        self.assertFalse((self.out/'sourcepawn-build-info.json').exists())
+        self.assertFalse((self.out/'package-map.json').exists())
+        self.assertIn('/blob/' + 'a'*40 + '/docs/', (self.out/'README.md').read_text())
+        self.assertEqual((self.out/'CHANGELOG.md').read_bytes(), (ROOT/'CHANGELOG.md').read_bytes())
+        self.assertTrue((self.root/'.build/release-receipts/linux.json').is_file())
         rogue=self.out/'README.md';rogue.write_text('unexpected')
         with self.assertRaises(ValueError):package.validate(self.root,self.out,'linux')
+    def test_license_metadata_leaks_and_receipt_integrity(self):
+        self.stage_native();self.release()
+        license_source=self.root/'LICENSE'
+        source=license_source.read_bytes()
+        license_source.write_bytes(source.replace(b'SOURCEMOD LICENSE INFORMATION', b'TODO'))
+        with self.assertRaisesRegex(ValueError,'Invalid license text'):self.release()
+        license_source.write_bytes(source);self.release()
+        manifest=self.out/'LICENSE';original=manifest.read_bytes()
+        manifest.write_bytes(b'{}')
+        with self.assertRaisesRegex(ValueError,'documentation differs'):package.validate(self.root,self.out,'linux')
+        manifest.write_bytes(original)
+        for name in ('build-info.json','sourcepawn-build-info.json','package-map.json'):
+            leak=self.out/name;leak.write_text('{}')
+            with self.assertRaises(ValueError):package.validate(self.root,self.out,'linux')
+            leak.unlink()
+        archive=self.root/'dist/release/test-linux.zip';archive.write_bytes(archive.read_bytes()+b'changed')
+        with self.assertRaisesRegex(ValueError,'archive differs'):package.validate(self.root,self.out,'linux')
+
     def test_wrong_architecture_and_missing_exports(self):
         validate_binary(self.bin,'linux')
         data=bytearray(self.bin.read_bytes());data[4]=2;self.bin.write_bytes(data)

@@ -28,6 +28,10 @@ borrador, sin rollback automático. Los reintentos deben ser explícitos. La
 concurrencia por ref no cancela otra ejecución de ese ref.
 
 Las notas de canal son mínimas: canal, UTC, commit/enlace y URL/intento de CI.
+Cada job de release transporta su recibo en un artefacto de CI separado del ZIP.
+El publicador exige ambos recibos, valida SHA, plataforma e integridad del par y
+sube únicamente los dos ZIP a GitHub Releases. Los recibos y `build-info` no se
+incluyen en los paquetes ni se agregan como assets de la release.
 Los permisos de escritura están limitados al job de publicación. Una ejecución
 local de `release-*` no usa credenciales, gh ni Git y nunca publica. El target
 `publish-channel` exige `PUBLISH=1` y datos de CI; no forma parte de builds/tests.

@@ -152,7 +152,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=exts-linux-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+          echo "key=exts-linux-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('scripts/deps/dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependency cache
         id: deps-cache-restore
@@ -242,7 +242,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=exts-windows-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+          echo "key=exts-windows-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('scripts/deps/dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependency cache
         id: deps-cache-restore
@@ -371,6 +371,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload linux release receipt
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-receipt-linux
+          path: .build/release-receipts/linux.json
+          if-no-files-found: error
+          retention-days: 14
+
   release-windows:
     runs-on: windows-2022
     needs: [build-smx, build-exts-windows]
@@ -426,6 +434,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+      - name: Upload windows release receipt
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-receipt-windows
+          path: .build/release-receipts/windows.json
+          if-no-files-found: error
+          retention-days: 14
+
   publish:
     permissions:
       contents: write
@@ -450,6 +466,18 @@ jobs:
         with:
           name: ${{ needs.release-windows.outputs.basename }}
           path: dist/release
+
+      - name: Download linux release receipt
+        uses: actions/download-artifact@v8
+        with:
+          name: release-receipt-linux
+          path: .build/release-receipts
+
+      - name: Download windows release receipt
+        uses: actions/download-artifact@v8
+        with:
+          name: release-receipt-windows
+          path: .build/release-receipts
 
       - name: Publish validated release pair
         env:

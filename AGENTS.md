@@ -59,3 +59,7 @@
 - Preserve SDK locks; no dependency upgrades during directory migration. Native
   compile_commands.json comes from real AMBuild tasks. Coverage uses real counters,
   includes unexecuted product lines and rejects changed sources/reports.
+- SDK locks live under scripts/deps. Installable ZIPs contain binaries, declared production
+  SourcePawn sources, public includes, runtime resources, minimal installation
+  docs and required legal texts. Keep package-map.json and build-info files out
+  of the ZIP. Keep build metadata and platform release receipts under .build; CI transports receipts separately and publishes only the verified ZIP pair.

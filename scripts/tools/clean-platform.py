@@ -9,6 +9,9 @@ from artifact_contract import safe_path
 def main(root=root):
     platform=sys.argv[1]
     if platform not in ('linux','windows'): raise SystemExit('Invalid platform')
+    receipt=root/'.build/release-receipts'/(platform+'.json')
+    safe_path(root,receipt.relative_to(root))
+    receipt.unlink(missing_ok=True)
     for prefix in ('.build/exts-', '.build/package-exts-', '.build/tests-native-', 'dist/'):
         target=root/(prefix+platform)
         if prefix=='dist/': target=target/'artifact'

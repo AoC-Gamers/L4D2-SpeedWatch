@@ -73,7 +73,7 @@ def verify_checkout(directory, expected_revision, allow_metadata=False):
 def verify_dependencies(root,deps,python,ambuild):
     for path in (python,ambuild,deps/'hl2sdk-l4d2',deps/'sourcemod-1.12',deps/'mmsource-1.12'):
         if not path.exists(): raise RuntimeError('Missing explicit dependency: '+str(path))
-    lock=json.loads((root/'dependencies.lock.json').read_text())
+    lock=json.loads((root/'scripts/deps/dependencies.lock.json').read_text())
     for name,spec in lock.items():
         verify_checkout(deps/name,spec['revision'],allow_metadata=name == 'ambuild')
 
