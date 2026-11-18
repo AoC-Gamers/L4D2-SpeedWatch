@@ -37,6 +37,14 @@ local de `release-*` no usa credenciales, gh ni Git y nunca publica. El target
 `publish-channel` exige `PUBLISH=1` y datos de CI; no forma parte de builds/tests.
 Sus pruebas utilizan dobles de Git/gh sin contactar servicios.
 
+## Runners del build nativo
+
+GitHub Actions requiere acceso a las variables de organización
+`L4D2_EXT_LINUX_RUNNER` y `L4D2_EXT_WINDOWS_RUNNER`. Un job por plataforma
+valida su variable y detiene esa ruta si está ausente, vacía o contiene solo
+espacios. La etiqueta validada se usa para resolver dependencias, compilar,
+empaquetar y separar las cachés nativas por imagen del runner.
+
 ## Migración de nombres
 
 Los assets anteriores `l4d2-speedwatch-linux-develop.zip` y equivalentes cambian

@@ -34,6 +34,40 @@ permissions:
   contents: read
 
 jobs:
+  linux-runner:
+    runs-on: ubuntu-22.04
+    outputs:
+      label: ${{ steps.runner.outputs.label }}
+    steps:
+      - name: Validate Linux runner configuration
+        id: runner
+        shell: bash
+        env:
+          L4D2_EXT_LINUX_RUNNER: ${{ vars.L4D2_EXT_LINUX_RUNNER }}
+        run: |
+          if [[ -z "${L4D2_EXT_LINUX_RUNNER//[[:space:]]/}" ]]; then
+            echo "::error::Set L4D2_EXT_LINUX_RUNNER in the AoC-Gamers organization and enable it for this repository."
+            exit 1
+          fi
+          printf 'label=%s\n' "$L4D2_EXT_LINUX_RUNNER" >> "$GITHUB_OUTPUT"
+
+  windows-runner:
+    runs-on: ubuntu-22.04
+    outputs:
+      label: ${{ steps.runner.outputs.label }}
+    steps:
+      - name: Validate Windows runner configuration
+        id: runner
+        shell: bash
+        env:
+          L4D2_EXT_WINDOWS_RUNNER: ${{ vars.L4D2_EXT_WINDOWS_RUNNER }}
+        run: |
+          if [[ -z "${L4D2_EXT_WINDOWS_RUNNER//[[:space:]]/}" ]]; then
+            echo "::error::Set L4D2_EXT_WINDOWS_RUNNER in the AoC-Gamers organization and enable it for this repository."
+            exit 1
+          fi
+          printf 'label=%s\n' "$L4D2_EXT_WINDOWS_RUNNER" >> "$GITHUB_OUTPUT"
+
   deps-smx:
     runs-on: ubuntu-22.04
     outputs:
@@ -128,7 +162,8 @@ jobs:
           retention-days: 1
 
   deps-exts-linux:
-    runs-on: ubuntu-22.04
+    runs-on: ${{ needs.linux-runner.outputs.label }}
+    needs: linux-runner
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
 
@@ -152,7 +187,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=exts-linux-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('scripts/deps/dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+          echo "key=exts-linux-x86-deps-${{ runner.os }}-${{ needs.linux-runner.outputs.label }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('scripts/deps/dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependency cache
         id: deps-cache-restore
@@ -174,8 +209,8 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}
 
   build-exts-linux:
-    runs-on: ubuntu-22.04
-    needs: deps-exts-linux
+    runs-on: ${{ needs.linux-runner.outputs.label }}
+    needs: [linux-runner, deps-exts-linux]
 
     steps:
       - name: Checkout repository
@@ -224,7 +259,8 @@ jobs:
           retention-days: 1
 
   deps-exts-windows:
-    runs-on: windows-2022
+    runs-on: ${{ needs.windows-runner.outputs.label }}
+    needs: windows-runner
     outputs:
       cache-key: ${{ steps.cache-key.outputs.key }}
 
@@ -242,7 +278,7 @@ jobs:
         id: cache-key
         shell: bash
         run: |
-          echo "key=exts-windows-x86-deps-${{ runner.os }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('scripts/deps/dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
+          echo "key=exts-windows-x86-deps-${{ runner.os }}-${{ needs.windows-runner.outputs.label }}-py${{ steps.python.outputs.python-version }}-${{ hashFiles('scripts/deps/dependencies.lock.json', 'scripts/deps/fetch-extension-deps.py') }}" >> "$GITHUB_OUTPUT"
 
       - name: Restore dependency cache
         id: deps-cache-restore
@@ -264,8 +300,8 @@ jobs:
           key: ${{ steps.cache-key.outputs.key }}
 
   build-exts-windows:
-    runs-on: windows-2022
-    needs: deps-exts-windows
+    runs-on: ${{ needs.windows-runner.outputs.label }}
+    needs: [windows-runner, deps-exts-windows]
 
     steps:
       - name: Checkout repository
@@ -308,8 +344,8 @@ jobs:
           retention-days: 1
 
   release-linux:
-    runs-on: ubuntu-22.04
-    needs: [build-smx, build-exts-linux]
+    runs-on: ${{ needs.linux-runner.outputs.label }}
+    needs: [linux-runner, build-smx, build-exts-linux]
     outputs:
       basename: ${{ steps.meta.outputs.basename }}
       release-tag: ${{ steps.meta.outputs.release_tag }}
@@ -380,8 +416,8 @@ jobs:
           retention-days: 14
 
   release-windows:
-    runs-on: windows-2022
-    needs: [build-smx, build-exts-windows]
+    runs-on: ${{ needs.windows-runner.outputs.label }}
+    needs: [windows-runner, build-smx, build-exts-windows]
     outputs:
       basename: ${{ steps.meta.outputs.basename }}
 
