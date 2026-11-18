@@ -51,9 +51,9 @@ El punto de entrada es [docs/README.md](docs/README.md).
 ## Validación
 
 Producción y consumidores de API compilan con SourcePawn 1.12.0.7255 y `-E`.
-El core tiene build Linux x86, pruebas del servicio/codec reales y pruebas de
-SourceHook con objeto sintético. Windows x86 tiene targets/CI preparados y sigue
-pendiente de compilación en host Windows. SRCDS y rendimiento siguen pendientes;
+El core compila en Linux x86 y Windows x86 con sus toolchains nativos. CI valida
+ELF/PE, exports y paquetes de ambos sistemas, con pruebas del servicio/codec
+y SourceHook sobre objetos sintéticos. SRCDS y rendimiento siguen pendientes;
 consultar [validación nativa](docs/native-core/validation.md).
 
 Licencia: GPL-3.0-or-later; consultar `LICENSE`.

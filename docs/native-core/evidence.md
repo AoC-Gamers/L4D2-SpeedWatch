@@ -48,7 +48,7 @@ instalado en SRCDS. Tampoco se instancian ni liberan objetos del motor.
 | Objetivo | Estado de implementación | Verificación local |
 | --- | --- | --- |
 | Linux x86 | Bloques, intentos y equipo; degradación sin offset RunCommand | Build AMBuild y ABI SDK x86; ELF/exports; pruebas de servicio y SourceHook |
-| Windows x86 | Mismo código con interfaz SDK y gamedata oficial propia de plataforma | Targets y CI preparados; build MSVC y PE real pendientes en host Windows |
+| Windows x86 | Mismo código con interfaz SDK y gamedata oficial propia de plataforma | Build MSVC x86, PE/exports y paquete validados en CI Windows; servicio/codec y SourceHook sintético aprobados |
 | x64 | No soportado | static_assert rechaza sizeof(void*) distinto de 4 |
 | Internals avanzados | Sin capacidad anunciada | Pendientes ProcessUsercmds interno, DetermineSimulationTicks, AdjustPlayerTimeBase y PhysicsSimulate |
 
